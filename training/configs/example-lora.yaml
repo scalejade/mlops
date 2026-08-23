@@ -1,0 +1,51 @@
+# Unsloth LoRA fine-tune config. Copy to <task>-<date>.yaml and edit.
+# One config file per run. Commit it — the config IS the experiment record.
+
+run_name: pjp-clause-extraction-lora-v1
+
+model:
+  base: scalejade/qwen-sea-lion-v4-32b-it
+  max_seq_length: 40960
+  load_in_4bit: true
+  dtype: null                # null = auto
+
+lora:
+  r: 32
+  alpha: 32
+  dropout: 0.0
+  bias: none
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+  use_gradient_checkpointing: unsloth
+  random_state: 3407
+
+data:
+  train: training/datasets/pjp-clauses/train.jsonl
+  eval:  training/datasets/pjp-clauses/eval.jsonl
+  format: chatml              # matches the Qwen3 chat template
+
+train:
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  warmup_steps: 10
+  num_train_epochs: 2
+  learning_rate: 2.0e-4
+  optim: adamw_8bit
+  weight_decay: 0.01
+  lr_scheduler_type: linear
+  seed: 3407
+
+output:
+  adapter_dir: training/adapters/pjp-clause-extraction-lora-v1
+  push_to_hub: scalejade/pjp-clause-extraction-lora-v1
+  private: true
+  merge_16bit: false          # true only when serving needs merged weights
+
+tracking:
+  wandb_project: scalejade-mlops

@@ -1,0 +1,18 @@
+# What is actually running, right now. Update this in the same PR that changes a deployment.
+# If this file disagrees with RunPod, this file is wrong — fix it.
+
+deployments:
+  - endpoint: pjp-clause-extraction
+    provider: runpod
+    mode: serverless               # serverless | pod
+    model: qwen-sea-lion-v4-32b-it
+    adapter: null                  # training/adapters/<name> when a LoRA is attached
+    serving_config: models/qwen-sea-lion-v4-32b-it/model.config
+    gpu: RTX PRO 6000 96GB
+    gpu_count: 1
+    max_workers: 1
+    network_volume: true           # required — without it cold start is ~2h instead of ~26s
+    cost_per_hour_usd: 3.49
+    owner: TODO
+    updated: 2026-08-16
+    status: active                 # active | paused | retired

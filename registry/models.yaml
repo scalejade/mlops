@@ -1,0 +1,40 @@
+# Model registry — source of truth for every model we host on the Hub.
+# One entry per repo under huggingface.co/scalejade.
+# Weights live on the Hub, never in git. This file records provenance.
+
+models:
+  - name: qwen-sea-lion-v4-32b-it
+    hub_repo: scalejade/qwen-sea-lion-v4-32b-it
+    upstream: aisingapore/Qwen-SEA-LION-v4-32B-IT
+    relation: redistribution        # redistribution | finetune | merge | quantization
+    params: 32B
+    context_len: 40960
+    license: MIT
+    status: production              # production | candidate | deprecated | failed
+    notes: "Selected for PJP clause extraction. 1x RTX PRO 6000 96GB."
+
+  - name: qwen-sea-lion-v4.5-27b-it
+    hub_repo: scalejade/qwen-sea-lion-v4.5-27b-it
+    BROKEN: true
+    # 2026-08-20: this mirror does NOT contain v4.5. It holds 20 shards / 80.15 GB of
+    # Qwen3ForCausalLM @ max_position_embeddings=40960. Upstream v4.5 is 15 shards /
+    # 55.59 GB of Qwen3_5ForConditionalGeneration @ 262144. Something overwrote it —
+    # most likely clone_model.py re-run with a different SOURCE_MODEL against the same
+    # TARGET_MODEL in .env. Serve upstream directly until this is re-cloned.
+    upstream: aisingapore/Qwen-SEA-LION-v4.5-27B-IT
+    relation: redistribution
+    params: 27B
+    context_len: 40960              # verified on-pod 2026-08-20; the "262144" claim was wrong
+    license: MIT
+    status: candidate
+    notes: "Untested. Long context makes it the obvious next trial."
+
+  - name: gemma-4-31B-it
+    hub_repo: scalejade/gemma-4-31b-it-baseline
+    upstream: google/gemma-4-31B-it-qat-w4a16-ct
+    relation: redistribution
+    params: 31B
+    context_len: null
+    license: gemma
+    status: failed
+    notes: "Architecture unsupported by vLLM 0.27.1 (RunPod template v2.25.1). Revisit on newer vLLM."

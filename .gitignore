@@ -1,0 +1,46 @@
+# --- Secrets -----------------------------------------------------------------
+runpod.txt
+*.pem
+*.key
+
+# --- Model weights -----------------------------------------------------------
+# Weights live on the Hub, never in git. Model cards and configs ARE tracked.
+models/**/weights/
+*.safetensors
+*.bin
+*.gguf
+*.pt
+*.pth
+
+# --- Training artifacts ------------------------------------------------------
+training/adapters/**
+!training/adapters/.gitkeep
+wandb/
+outputs/
+checkpoints/
+
+# --- Data --------------------------------------------------------------------
+# Client documents and real datasets go to private HF dataset repos, not here.
+eval/golden/**/expected/
+training/datasets/**/*.jsonl
+!training/datasets/**/sample.jsonl
+
+# --- Scratch -----------------------------------------------------------------
+scratch/**
+!scratch/.gitkeep
+tmp/
+
+# --- Python ------------------------------------------------------------------
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# --- OS ----------------------------------------------------------------------
+.DS_Store
+
+# --- Generated requests ------------------------------------------------------
+# These embed client documents. Regenerate with runpod/scripts/build_request.py
+runpod/requests/**
+!runpod/requests/README.md

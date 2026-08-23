@@ -1,0 +1,4 @@
+# Deployment tooling. Training and eval have their own requirements.
+pyyaml>=6.0
+openai>=1.0          # client for the RunPod OpenAI-compatible endpoint
+huggingface_hub>=0.24

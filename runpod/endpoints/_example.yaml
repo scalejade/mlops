@@ -1,0 +1,30 @@
+# Template for a new endpoint. Copy to <endpoint-name>.yaml and edit.
+# Files starting with _ are ignored by deploy.py.
+
+name: my-endpoint
+model: qwen-sea-lion-v4-32b-it
+adapter: null
+
+template:
+  imageName: runpod/worker-v1-vllm:v2.25.1stable-cuda12.1.0
+  containerDiskInGb: 20
+  volumeMountPath: /runpod-volume
+  isServerless: true
+
+endpoint:
+  gpuTypeIds: ["NVIDIA RTX PRO 6000 Blackwell Server Edition"]
+  gpuCount: 1
+  computeType: GPU
+  workersMin: 0
+  workersMax: 1
+  idleTimeout: 60
+  scalerType: QUEUE_DELAY
+  scalerValue: 4
+  executionTimeoutMs: 1800000
+  networkVolumeId: ${RUNPOD_NETWORK_VOLUME_ID}
+  dataCenterIds: ["US-NC-1"]
+  flashboot: true
+
+request_defaults:
+  max_tokens: 24576
+  temperature: 0.0

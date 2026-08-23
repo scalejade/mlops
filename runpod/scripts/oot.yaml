@@ -1,0 +1,18 @@
+export POD_URL="https://l6q7t1t08yksoa-8000.proxy.runpod.net/v1"
+export KEY="sk-jago-ww8ic2q2mby6pj2miuq3vjeb"
+
+
+scalejade/qwen-sea-lion-v4.5-27b-it --served-model-name scalejade/qwen-sea-lion-v4.5-27b-it --host 0.0.0.0 --port 8000 --dtype auto --max-model-len 262144 --max-num-seqs 2 --gpu-memory-utilization 0.90 --kv-cache-dtype fp8 --tensor-parallel-size 1 --enable-chunked-prefill --max-num-batched-tokens 8192 --gdn-prefill-backend triton
+
+HF_TOKEN=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
+HF_HOME=/workspace/.huggingface
+HF_XET_HIGH_PERFORMANCE=1
+VLLM_CACHE_ROOT=/workspace/.vllm-cache
+VLLM_API_KEY=sk-jago-ww8ic2q2mby6pj2miuq3vjeb
+PYTORCH_ALLOC_CONF=expandable_segments:True
+PUBLIC_KEY=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB40GO42LomTJNmaRAV60QXWOLdj+9yyVki/uJIPxqpB mbiskho@Bismas-MacBook-Pro.local
+
+
+python runpod/scripts/send_request.py \
+  runpod/requests/jago-extraction-SINGLE-262k.json \
+  --pod-id x3mi36g0033lqq
