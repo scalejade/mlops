@@ -41,6 +41,6 @@ venv/
 .DS_Store
 
 # --- Generated requests ------------------------------------------------------
-# These embed client documents. Regenerate with runpod/scripts/build_request.py
+# These embed client documents. Never commit them.
 runpod/requests/**
 !runpod/requests/README.md

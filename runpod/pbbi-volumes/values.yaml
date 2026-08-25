@@ -1,0 +1,17 @@
+volume:
+  # 150 GB holds the 55.6 GB v4.5-27B checkpoint plus the v4-32B one with room
+  # to spare. Volumes can grow but never shrink, so start where you mean to stay.
+  size: 150
+
+  # MUST match the dataCenterIds of everything that mounts it. A network volume
+  # is region-local: an endpoint in another region simply cannot attach it.
+  dataCenterId: US-NC-1
+
+# Not sent to RunPod. Read by `deploy.py plan` so the cost is on screen before
+# you create something that bills continuously whether or not it is being read.
+cost:
+  usd_per_gb_month: 0.07
+  note: |
+    Flat rate, billed whether or not a pod is running. 150 GB is ~$10.50/mo.
+    Cheaper than a pod volume disk ($0.10/GB running, $0.20/GB stopped) and it
+    survives deletion of everything that mounts it.

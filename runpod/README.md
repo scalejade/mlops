@@ -4,21 +4,100 @@ Inference. Everything about how a model is served lives here, and every deployme
 goes through `deploy.py` — no clicking around the RunPod console.
 
 The console is fine for looking at things. It is a bad place to *change* things,
-because a change made there exists nowhere in git and nobody can tell what the
-endpoint is supposed to look like.
+because a change made there exists nowhere in git and nobody can tell what a
+service is supposed to look like.
 
-## Layout
+## Charts
 
-| Path | What |
-|---|---|
-| `deploy.py` | The deploy CLI. Reads config, validates it, calls the RunPod REST API. |
-| `endpoints/` | One YAML per endpoint. Field names map 1:1 to the RunPod API. |
-| `worker/` | Our own vLLM worker image, so the engine version is ours to choose. |
+A **chart** is one deployable service: a directory holding `chart.yaml` (what it is)
+and `values.yaml` (how it is configured). Every service sits at the same level,
+whatever its kind:
 
-Engine arguments (context length, KV cache dtype, prefix caching, …) are **not**
-here — they live in `models/<model>/model.config`, so the same model gets the same
-engine config wherever it is served. `deploy.py` reads that file and sends it as
-the template's env.
+```
+runpod/
+  deploy.py
+  pbbi-volumes/          kind: volume       chart.yaml  values.yaml
+  pbbi-serverles/      kind: serverless   chart.yaml  values.yaml
+  requests/                   generated payloads (gitignored — they embed client documents)
+```
+
+Adding a fourth service means adding a fourth directory. `deploy.py` discovers charts
+by globbing `*/chart.yaml`, so nothing needs registering. The directory name **is** the
+service name, and it is also the name the resource carries on RunPod — that is what
+makes `apply` idempotent, because every kind is looked up by name and PATCHed if it
+already exists.
+
+### chart.yaml — identity
+
+```yaml
+apiVersion: v1
+kind: serverless            # serverless | pod | volume
+name: pbbi-serverles # must equal the directory name
+version: 0.1.0
+description: Clause extraction over Indonesian loan agreements.
+dependencies:
+  - name: pbbi-volumes
+    kind: volume
+```
+
+`dependencies` is the part that earns the chart shape. A serverless endpoint needs a
+network volume, and hardcoding the volume's id in two places is how the two drift
+apart. Instead the endpoint names the volume it needs; at deploy time `deploy.py`
+looks that volume up on the account and injects its real id. Apply the volume first —
+a dependency that is not deployed is a hard failure, in `plan` as well as `apply`.
+
+### values.yaml — configuration
+
+Everything tunable, and nothing else. Field names under `template:`, `endpoint:` and
+the pod blocks map 1:1 to the RunPod REST API, so there is no hidden translation layer
+to reason about. `${VAR}` is resolved from `.env` at deploy time, which is how secrets
+stay out of git.
+
+One exception, on purpose: **serverless engine arguments are not here.** They live in
+`models/<model>/model.config`, so the same model gets the same engine config wherever
+it is served, and `deploy.py` sends that file as the template env. A pod has no
+template, so its `engine:` block lives in `values.yaml` and `deploy.py` renders it into
+the pod's start command.
+
+## The three kinds
+
+| kind | RunPod resource | when |
+|---|---|---|
+| `volume` | network volume | shared checkpoint storage. Apply this first — the others depend on it. |
+| `serverless` | template + endpoint | bursty production traffic. Scales to zero, cold-starts on demand. |
+| `pod` | pod | trials, batch jobs, anything where you want to watch the logs or SSH in. |
+
+The pod/serverless split is the one people get wrong. A pod is a GPU you rent by the
+hour that stays up; it bills whether or not it is serving. Serverless scales to zero
+and costs nothing idle, at the price of a cold start on the first request. For a batch
+run — a handful of long documents, minutes of compute each — a pod is the right shape:
+no cold start and no per-request scaling drama. For traffic that arrives unpredictably,
+serverless.
+
+## Commands
+
+```bash
+python runpod/deploy.py list                           # charts on disk vs what is live
+python runpod/deploy.py plan   <service>               # validate + show, sends nothing
+python runpod/deploy.py apply  <service>               # create or update
+python runpod/deploy.py status <service>               # what is actually live
+python runpod/deploy.py delete <service>               # tear down (asks for confirmation)
+python runpod/deploy.py stop   <service>               # pods only — stop billing, keep disk
+python runpod/deploy.py start  <service>               # pods only — resume
+```
+
+Same verbs for every kind. `apply` is idempotent; always run `plan` first, since it
+does the full validation pass — dependency resolution included — without touching the
+account.
+
+Order matters on a cold account:
+
+```bash
+python runpod/deploy.py apply pbbi-volumes        # volume first
+python runpod/deploy.py apply pbbi-serverles    # then what mounts it
+```
+
+Then update `registry/deployments.yaml` with the id it prints, in the same PR.
 
 ## Setup
 
@@ -26,72 +105,56 @@ the template's env.
 pip install pyyaml
 
 cp .env.example .env
-# RUNPOD_API_KEY            RunPod console -> Settings -> API Keys (needs write access)
-# RUNPOD_NETWORK_VOLUME_ID  RunPod console -> Storage
-# HF_TOKEN                  needed by the worker to pull private scalejade/ weights
+# RUNPOD_API_KEY   RunPod console -> Settings -> API Keys (needs write access)
+# HF_TOKEN         the worker needs it to pull private scalejade/ weights
+# VLLM_API_KEY     pods only — the pod proxy URL is public, so set a real random value
+# SSH_PUBLIC_KEY   pods only — shell access for debugging a boot failure
 ```
 
-## Deploying
-
-```bash
-python runpod/deploy.py plan   pjp-clause-extraction   # validate + show, sends nothing
-python runpod/deploy.py apply  pjp-clause-extraction   # create or update
-python runpod/deploy.py status pjp-clause-extraction   # what is actually live
-python runpod/deploy.py list                           # every endpoint on the account
-python runpod/deploy.py delete pjp-clause-extraction   # tear down (asks for confirmation)
-```
-
-`apply` is idempotent. It looks the template and endpoint up **by name** and PATCHes
-them if they already exist, so running it twice does not create duplicates. Always run
-`plan` first — it does the full validation pass without touching the account.
-
-### What happens on apply
-
-1. Load `.env`, then `runpod/endpoints/<name>.yaml`.
-2. Load `models/<model>/model.config` and expand `${VAR}` from `.env`.
-3. Run preflight (below). Fail before spending a cent if anything is wrong.
-4. Create or update the RunPod template — image, disk, volume mount, engine env.
-5. Create or update the endpoint — GPU type, worker counts, scaling, network volume.
-6. Print the endpoint ID and OpenAI-compatible base URL.
-
-Then update `registry/deployments.yaml` with the endpoint ID, in the same PR.
+Network volume ids are **not** in `.env` any more. They are resolved by name through
+the dependency graph.
 
 ## Preflight
 
-These checks exist because each one has already cost us an evening. See
-`docs/reports/2026-08-16-runpod-deployment-trials.md`.
+`plan` and `apply` both run it. Each check exists because it has already cost us an
+evening; see `docs/reports/2026-08-16-runpod-deployment-trials.md`.
 
 **Fatal:**
 
-- `TENSOR_PARALLEL_SIZE` must equal `gpuCount`. Mismatched, the worker dies with
-  `DP adjusted local rank N is out of bounds for 1 devices`. Note that RunPod's
-  `gpuCount` means *GPUs per worker* — `workersMax` is the replica count. Confusing
-  the two cost us three separate attempts.
-- `MAX_MODEL_LEN` must be a positive integer. Left empty it is passed as `0`, and
-  vLLM ≥0.27 rejects `0` rather than reading it as "auto".
-- `networkVolumeId` must be set. Without a shared volume every worker downloads the
-  full checkpoint itself: ~2 hours of cold start instead of ~26 seconds.
-- `max_tokens` must leave room for the prompt inside `MAX_MODEL_LEN`.
+- `TENSOR_PARALLEL_SIZE` must equal `gpuCount` (serverless) or `gpu.count` (pod).
+  Mismatched, the worker dies with `DP adjusted local rank N is out of bounds for 1
+  devices`. RunPod's `gpuCount` means *GPUs per worker* — `workersMax` is the replica
+  count. Confusing the two cost us three separate attempts.
+- `MAX_MODEL_LEN` / `engine.max_model_len` must be a positive integer. Left empty it is
+  passed as `0`, and vLLM ≥0.27 rejects `0` rather than reading it as "auto".
+- A serverless endpoint must have a volume. Without a shared volume every worker
+  downloads the full checkpoint itself: ~2 hours of cold start instead of ~26 seconds.
+- A volume and everything that mounts it must be in the same datacenter. Network
+  volumes are region-local and simply will not attach across regions.
+- `max_tokens` must leave room for the prompt inside the context window, and a pod's
+  `workload.peak_context_needed` must fit inside `engine.max_model_len`.
+- A volume's `size` may not be reduced below what is live. Volumes grow, never shrink.
 
 **Warning:**
 
 - No `dataCenterIds` — workers spread across regions get throttled.
-- `max_tokens` small relative to the context window. This is the truncation trap:
-  a response that hits the limit comes back **HTTP 200** with content silently
-  missing. At `max_tokens: 16384` against a real need of 17,258 we lost roughly
-  seven clauses per document and nothing errored.
+- `disk.type: volume_disk` on a pod — the disk dies with the pod. Stop it, never
+  delete it.
+- `max_tokens` small relative to the context window. This is the truncation trap: a
+  response that hits the limit comes back **HTTP 200** with content silently missing.
+  At `max_tokens: 16384` against a real need of 17,258 we lost roughly seven clauses
+  per document and nothing errored.
 
-## Calling the endpoint
+## Calling a service
 
-`deploy.py apply` prints the base URL. It speaks the OpenAI API:
+`apply` prints the base URL. Both kinds speak the OpenAI API — serverless at
+`https://api.runpod.ai/v2/{id}/openai/v1`, a pod at
+`https://{id}-8000.proxy.runpod.net/v1`.
 
 ```python
 from openai import OpenAI
 
-client = OpenAI(
-    api_key=os.environ["RUNPOD_API_KEY"],
-    base_url=f"https://api.runpod.ai/v2/{ENDPOINT_ID}/openai/v1",
-)
+client = OpenAI(api_key=..., base_url=BASE_URL)
 
 resp = client.chat.completions.create(
     model="scalejade/qwen-sea-lion-v4-32b-it",
@@ -108,14 +171,17 @@ if resp.choices[0].finish_reason == "length":
 ## Cost
 
 Serverless bills per second of worker runtime, including cold start. `workersMin: 0`
-scales to zero and costs nothing idle, at the price of a cold start on the first
-request. For latency-sensitive interactive work set `workersMin: 1` and accept the
-hourly rate. For batch jobs leave it at zero.
+scales to zero and costs nothing idle. A pod bills by the second while **running**,
+idle or not — `deploy.py stop` is how you stop paying without losing the disk. A
+network volume bills continuously at $0.07/GB/mo regardless of what is attached.
 
-Current production: 1× RTX PRO 6000 96GB at $3.49/hr.
+`plan` prints the hourly or monthly figure before anything is sent.
 
-## When RunPod's image is too old
+## API version
 
-The stock vLLM worker lags upstream. Gemma 4 would not run at all on vLLM 0.27.1,
-and DeepSeek-V4 needed eight fixes. When a model is newer than the template, build
-from `worker/` and set `template.imageName` to your own image. See `worker/README.md`.
+`deploy.py` targets RunPod REST **v1** (`https://rest.runpod.io/v1`), which is
+deprecated and retires **2026-11-15**. v2 is not a drop-in replacement — nested request
+bodies, `/endpoints` becomes `/serverless`, list responses are wrapped in an object,
+and errors move to RFC 9457. Everything version-specific is confined to `api()`,
+`find_by_name()` and the `KINDS` table, so the migration is a contained change rather
+than a rewrite.

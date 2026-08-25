@@ -1,0 +1,46 @@
+# Field names under `template:` and `endpoint:` map 1:1 to the RunPod REST API,
+# so there is no hidden translation layer to reason about.
+
+# Engine args are NOT here. They live in models/<model>/model.config so the same
+# model gets the same engine config wherever it is served. deploy.py reads that
+# file and sends it as the template env.
+model: qwen-sea-lion-v4-32b-it
+adapter: null
+
+template:
+  # Pin the image. The stock RunPod vLLM template moves without warning, and the
+  # engine version is the single biggest source of deployment failure here.
+  imageName: runpod/worker-v1-vllm:v2.25.1stable-cuda12.1.0
+  containerDiskInGb: 20
+  volumeMountPath: /runpod-volume   # serverless mounts here; pods mount /workspace
+
+endpoint:
+  gpuTypeIds:
+    - "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+  gpuCount: 1                    # GPUs PER WORKER. Must equal TENSOR_PARALLEL_SIZE.
+  computeType: GPU
+
+  workersMin: 0                  # >0 keeps a warm pool: no cold start, but you pay idle
+  workersMax: 1                  # REPLICAS. Not GPUs. These are different things.
+
+  idleTimeout: 60
+  scalerType: QUEUE_DELAY        # QUEUE_DELAY | REQUEST_COUNT
+  scalerValue: 4
+  executionTimeoutMs: 1800000    # 30 min — long documents are slow, not stuck
+
+  # Pin the region, and pin it to the volume's region. Workers spread across
+  # datacenters get throttled, and a volume in another region will not attach.
+  dataCenterIds:
+    - "US-NC-1"
+
+  flashboot: true
+
+  # networkVolumeId is injected from the pbbi-volumes dependency. Do not
+  # hardcode it here — the dependency is what keeps the two regions in sync.
+
+# Not sent to RunPod — read by callers and by the preflight checks.
+request_defaults:
+  max_tokens: 24576              # measured need is 17,258. Do not set below it.
+  temperature: 0.0
+  # finish_reason == "length" is a FAILURE. The response is HTTP 200 with content
+  # silently missing. Callers must raise on it.

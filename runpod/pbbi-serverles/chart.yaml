@@ -1,0 +1,18 @@
+# Serverless endpoint. Bursty production traffic, scales to zero.
+#
+#   python runpod/deploy.py plan   pbbi-serverles
+#   python runpod/deploy.py apply  pbbi-serverles
+#   python runpod/deploy.py status pbbi-serverles
+
+apiVersion: v1
+kind: serverless
+name: pbbi-serverles
+version: 0.1.0
+description: Clause extraction over Indonesian loan agreements, OpenAI-compatible.
+
+# Resolved by name at apply time: deploy.py looks the volume up on the account
+# and injects its real id as endpoint.networkVolumeId. Apply the dependency
+# first — deploy.py refuses to continue if it is not there yet.
+dependencies:
+  - name: pbbi-volumes
+    kind: volume

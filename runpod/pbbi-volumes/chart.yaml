@@ -1,0 +1,17 @@
+# Network volume. Shared checkpoint storage.
+#
+# This is the base of the stack: both the serverless endpoint and any pod that
+# serves the same weights mount it. Without it every worker downloads the full
+# checkpoint itself — ~2h cold start instead of ~26s.
+#
+#   python runpod/deploy.py plan  pbbi-volumes
+#   python runpod/deploy.py apply pbbi-volumes
+
+apiVersion: v1
+kind: volume
+name: pbbi-volumes
+version: 0.1.0
+description: Shared checkpoint storage for every scalejade model served on RunPod.
+
+# Volumes are the root of the dependency graph — nothing to depend on.
+dependencies: []
