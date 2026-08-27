@@ -71,7 +71,9 @@ RESPONSE_PART = "<|im_start|>assistant\n"
 
 USD_PER_HOUR = 4.59  # pod.yaml cost.usd_per_hour, secure H200. Only used to print.
 
-STAGES = ["env", "versions", "tokenizer", "model", "train", "generate", "save", "push"]
+# save comes before generate on purpose: generate is a check, save is the artifact,
+# and an artifact that only exists in VRAM is one exception away from gone.
+STAGES = ["env", "versions", "tokenizer", "model", "train", "save", "generate", "push"]
 
 # Defaults for the trial run. Alpaca-cleaned is small, English, instruction-shaped
 # and in the messages schema after one map -- enough for a loss curve that means
@@ -150,6 +152,12 @@ class Report:
             print(f"  {'ok  ' if passed else 'FAIL'}  {stage:<10} {note}")
         info(f"{total / 60:.1f} min of pod time  ~${total / 3600 * USD_PER_HOUR:.2f}")
         failed = [s for s, p, _ in self.rows if not p]
+        if failed and self.pushed:
+            head(f"FAILED: {', '.join(failed)}  --  but the adapter WAS pushed")
+            info(f"https://huggingface.co/{self.pushed}")
+            info("The artifact is real and the failure above is real. Decide whether "
+                 "that stage mattered before anyone uses it.")
+            return 1
         if failed:
             head(f"FAILED: {', '.join(failed)}")
             info("Fix these before starting a real run -- train.py takes the same path.")
@@ -584,6 +592,18 @@ def stage_generate(args, model, tok) -> None:
     prompt = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = tok(prompt, return_tensors="pt").to(model.device)
 
+    # unsloth_base_fast_generate does `any(... for x in config.architectures)` to
+    # decide whether this is a VLM. A text_only load leaves architectures None, so
+    # that any() raises TypeError before a token is generated. Fill it in from the
+    # class actually loaded -- which, text-only, is the decoder, so unsloth takes
+    # the text path, which is the correct one for us.
+    cfg = getattr(model, "config", None)
+    if cfg is not None and getattr(cfg, "architectures", None) is None:
+        inner = getattr(getattr(model, "base_model", None), "model", model)
+        cfg.architectures = [type(inner).__name__]
+        info(f"config.architectures was unset; set to {cfg.architectures[0]} so "
+             f"unsloth can pick a generate path")
+
     for_inference = getattr(FastModel, "for_inference", None)
     if for_inference:
         for_inference(model)
@@ -921,15 +941,28 @@ def main() -> int:
             meta = stage_train(args, model, tok)
             report.record("train", True, f"{args.steps} steps")
 
-        if "generate" in wanted:
-            head("generate")
-            stage_generate(args, model, tok)
-            report.record("generate", True)
-
         if "save" in wanted:
             head("save")
             stage_save(args, model, tok)
             report.record("save", True)
+
+        # Non-fatal by design. Generation exercises the serving prompt shape; it
+        # is not the training path, and a quirk in it must not cost a trained
+        # adapter or block a push the run was asked for. It is still recorded as
+        # a failure, so the summary and the exit code tell the truth.
+        if "generate" in wanted:
+            head("generate")
+            try:
+                stage_generate(args, model, tok)
+                report.record("generate", True)
+            except Fail as e:
+                bad(str(e))
+                report.record("generate", False, "see above")
+            except Exception as e:      # noqa: BLE001 -- upstream internals
+                bad(f"{type(e).__name__}: {e}")
+                info("this is the generation check only -- the adapter is saved, and "
+                     "the push below is unaffected")
+                report.record("generate", False, type(e).__name__)
 
         # Last, and only on request: everything above has to have passed, because
         # a push is the one step here that other people can see.
