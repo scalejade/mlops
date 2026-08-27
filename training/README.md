@@ -43,10 +43,23 @@ that you should not undo:
   because Unsloth's stock qwen-3 template does not handle SEA-LION's thinking blocks
   the same way.
 
-The linear-attention Triton kernels ship inside `unsloth_zoo`; nothing extra to
-install, but they need torch ≥ 2.7 and Triton ≥ 3.3, which is why `pod.yaml` pins a
-torch 2.8 / CUDA 12.8 image. Without them transformers falls back to a pure-PyTorch
-path that is several times slower, and Unsloth says so at load time.
+**The fast linear-attention kernels are not bundled.** Verified on-pod 2026-08-27:
+`unsloth_zoo` alone is not enough, and the model load says so —
+
+```
+The fast path is not available because one of the required library is not
+installed. Falling back to torch implementation.
+```
+
+The gated-deltanet layers want `flash-linear-attention` and `causal-conv1d`, and
+without them every step runs a pure-PyTorch path that is **several times slower**.
+Nothing is wrong with the result — the loss is the same — you are just paying H200
+rates for it. `prepare.sh --fast-kernels` installs both; it is opt-in because
+`causal-conv1d` compiles against the image's torch and takes ~10 minutes, which is
+not worth it for a smoke test and very much is for a real run.
+
+They also need torch ≥ 2.7 and Triton ≥ 3.3, which is why `pod.yaml` pins a
+torch 2.8 / CUDA 12.8 image.
 
 ## Layout
 

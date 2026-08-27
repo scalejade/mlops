@@ -347,6 +347,16 @@ def stage_model(args):
         max_seq_length=args.max_seq_length,
     )
 
+    # Unsloth prints "The fast path is not available ..." in the middle of a
+    # hundred lines of banner and progress bars. It costs several times the step
+    # time, so it gets said again, here, where the summary can carry it.
+    missing = [pkg for pkg in ("fla", "causal_conv1d")
+               if not __import__("importlib.util", fromlist=["util"]).find_spec(pkg)]
+    if missing:
+        warn(f"gated-deltanet fast path OFF ({', '.join(missing)} not installed) -- "
+             f"every step runs the pure-PyTorch fallback, several times slower. "
+             f"Correct results, H200 prices. Fix: prepare.sh --fast-kernels")
+
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total = sum(p.numel() for p in model.parameters())
     if trainable == 0:
@@ -486,8 +496,10 @@ def check_masking(trainer, tok) -> None:
             raise Fail("the system prompt is inside the supervised tokens -- masking "
                        "is not working, the model would learn to emit our prompt")
         if share > 80:
-            warn("over 80% of the sequence is supervised; on chat data that usually "
-                 "means the prompt is being trained on too")
+            warn(f"{share:.0f}% of the sequence is supervised. On multi-turn chat "
+                 f"that means the prompt leaked in; on instruction data, where the "
+                 f"answer dwarfs the question, it is normal. What settles it is the "
+                 f"decoded text above: it must begin at the assistant turn.")
         ok("loss is on the assistant turn only")
     except Fail:
         raise

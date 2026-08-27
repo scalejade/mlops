@@ -14,6 +14,9 @@
 # container disk is rebuilt each time, /workspace is not, so step 3 is skipped on
 # every run after the first.
 #
+#   --fast-kernels  also build flash-linear-attention + causal-conv1d (~10 min).
+#                   Without them the gated-deltanet layers fall back to a
+#                   pure-PyTorch path that is several times slower per step.
 #   --skip-deps     dependencies are already installed (skips bootstrap.sh)
 #   --skip-model    do not download the base (versions and env only)
 #   --test          run training/scripts/test.py at the end
@@ -31,12 +34,14 @@ WORKSPACE="${WORKSPACE:-/workspace}"
 MODEL="scalejade/qwen-sea-lion-v4.5-27b-it"
 REVISION="81d9102bab84b46085cc0f8539efe578d33e29da"
 MODEL_GB=56          # 15 shards, 55.56 GB bf16, verified 2026-08-25
+FAST_KERNELS=0
 SKIP_DEPS=0
 SKIP_MODEL=0
 RUN_TEST=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --fast-kernels) FAST_KERNELS=1 ;;
     --skip-deps)  SKIP_DEPS=1 ;;
     --skip-model) SKIP_MODEL=1 ;;
     --test)       RUN_TEST=1 ;;
@@ -111,6 +116,16 @@ if [ "$SKIP_DEPS" -eq 0 ]; then
   bash "$REPO/training/scripts/bootstrap.sh"
 else
   echo "==> dependencies skipped (--skip-deps)"
+fi
+
+# The fast path for gated-deltanet. Separate from requirements.txt because
+# causal-conv1d compiles against the image's torch and takes ~10 minutes; a run
+# that only needs to prove the stack works should not pay that.
+if [ "$FAST_KERNELS" -eq 1 ]; then
+  echo
+  echo "==> fast linear-attention kernels (compiling, ~10 min)"
+  pip install -q flash-linear-attention causal-conv1d \
+    || echo "!!  build failed. Training still works on the slow fallback path."
 fi
 
 export HF_HOME="${HF_HOME:-$WORKSPACE/hf}"

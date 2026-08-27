@@ -8,7 +8,14 @@
 # to 1.10.0 — both outside Unsloth's supported range, and the run dies at import.
 
 unsloth>=2026.8.19            # first release with qwen3_5 (GDN + VLM) support
-unsloth_zoo>=2026.8.14        # bundles the flash-linear-attention Triton kernels
+unsloth_zoo>=2026.8.14        # Unsloth's patching layer
+
+# NOT here, deliberately: flash-linear-attention and causal-conv1d, the fast path
+# for qwen3_5's gated-deltanet layers. causal-conv1d builds from source against the
+# image's torch (~10 min, needs nvcc), which is a bad trade for a smoke test and a
+# good one for a real run. Without them the model loads and trains correctly on a
+# pure-PyTorch fallback that is several times slower, and says so at load.
+#   bash training/scripts/prepare.sh --fast-kernels
 
 # >=5.2.0: below it AutoConfig cannot read model_type qwen3_5 at all.
 # <=5.5.0 and the exclusions: Unsloth's own declared ceiling and known-bad builds.
