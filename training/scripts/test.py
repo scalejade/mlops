@@ -197,8 +197,18 @@ def stage_env(args) -> None:
     if "workspace" not in str(cache):
         warn("the HF cache is not under /workspace. The container disk is wiped on "
              "stop/start -- the 56 GB base will be re-downloaded every restart.")
-    if not os.environ.get("HF_TOKEN"):
-        warn("HF_TOKEN unset -- private scalejade/ repos will 401")
+    # "set" is not "works": an expired token is present in the environment and
+    # fails at the first Hub call, which used to be several stages and one model
+    # load later. hf_auth.py is the same check prepare.sh runs in preflight.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import hf_auth
+
+    code = hf_auth.main()
+    if code == 1:
+        raise Fail("the Hub rejected HF_TOKEN (above). Every stage after this one "
+                   "authenticates with it.")
+    if code == 2 and args.push:
+        raise Fail("--push needs a write token in HF_TOKEN, and none is set")
 
 
 def stage_versions() -> None:
@@ -232,6 +242,26 @@ def stage_versions() -> None:
     ok("versions are inside the supported intersection")
 
 
+def hub_fail(what: str, repo: str, revision: str, e: Exception) -> Fail:
+    """
+    Hub errors arrive as a stack of httpx / huggingface_hub exceptions whose
+    useful sentence is the last line, and whose cause -- expired token, no org
+    membership, gated repo, wrong sha -- all present as the same 401. Say which
+    ones are worth checking instead of printing the stack.
+    """
+    last = [ln for ln in str(e).strip().splitlines() if ln.strip()]
+    detail = last[-1] if last else type(e).__name__
+    hint = ""
+    if "401" in str(e) or "Unauthorized" in str(e) or "Repository Not Found" in str(e):
+        hint = (f"\n         A 401 on {repo} is one of: HF_TOKEN expired, the token "
+                f"has no access to that org, or the repo is gated and unaccepted. "
+                f"Check with:  python training/scripts/hf_auth.py")
+    elif "404" in str(e) or "RevisionNotFound" in str(e):
+        hint = (f"\n         Check that revision {revision[:12]} still exists on "
+                f"{repo} -- a force-push on the mirror moves it.")
+    return Fail(f"could not load {what} from {repo}: {detail}{hint}")
+
+
 def stage_tokenizer(args):
     """
     Tokenizer files are a few MB against the base's 55.56 GB, so every template
@@ -239,9 +269,12 @@ def stage_tokenizer(args):
     """
     from transformers import AutoTokenizer
 
-    tok = AutoTokenizer.from_pretrained(
-        args.model, revision=args.revision, token=os.environ.get("HF_TOKEN")
-    )
+    try:
+        tok = AutoTokenizer.from_pretrained(
+            args.model, revision=args.revision, token=os.environ.get("HF_TOKEN")
+        )
+    except Exception as e:      # noqa: BLE001 -- reported, not swallowed
+        raise hub_fail("the tokenizer", args.model, args.revision, e) from None
     if tok.chat_template is None:
         raise Fail(f"{args.model} ships no chat template -- train.py would need "
                    f"model.override_chat_template: true")
@@ -284,15 +317,20 @@ def cache_state(args) -> None:
 def stage_model(args):
     cache_state(args)
     t = time.time()
-    model, tok = FastModel.from_pretrained(
-        model_name=args.model,
-        revision=args.revision,
-        max_seq_length=args.max_seq_length,
-        dtype=torch.bfloat16,
-        load_in_4bit=args.load_in_4bit,
-        text_only=True,          # this base is a VLM; we never train the tower
-        token=os.environ.get("HF_TOKEN"),
-    )
+    try:
+        model, tok = FastModel.from_pretrained(
+            model_name=args.model,
+            revision=args.revision,
+            max_seq_length=args.max_seq_length,
+            dtype=torch.bfloat16,
+            load_in_4bit=args.load_in_4bit,
+            text_only=True,      # this base is a VLM; we never train the tower
+            token=os.environ.get("HF_TOKEN"),
+        )
+    except torch.cuda.OutOfMemoryError:
+        raise
+    except Exception as e:      # noqa: BLE001 -- reported, not swallowed
+        raise hub_fail("the model", args.model, args.revision, e) from None
     info(f"loaded in {(time.time() - t) / 60:.1f} min   "
          f"vram {torch.cuda.max_memory_reserved() / 1e9:.1f} GB")
 
