@@ -1,18 +1,55 @@
-# Unsloth LoRA fine-tune config. Copy to <task>-<date>.yaml and edit.
-# One config file per run. Commit it — the config IS the experiment record.
+# Unsloth LoRA fine-tune of Qwen-SEA-LION v4.5 27B, one H200.
+# Copy to <task>-<date>.yaml and edit. One config file per run, committed.
+# The config IS the experiment record — train.py takes no hyperparameter flags,
+# so anything not written here did not happen and cannot be reproduced.
+#
+#   python training/scripts/train.py training/configs/<task>-<date>.yaml --dry-run
+#   python training/scripts/train.py training/configs/<task>-<date>.yaml
 
 run_name: pjp-clause-extraction-lora-v1
 
 model:
-  base: scalejade/qwen-sea-lion-v4-32b-it
-  max_seq_length: 40960
-  load_in_4bit: true
-  dtype: null                # null = auto
+  base: scalejade/qwen-sea-lion-v4.5-27b-it
+
+  # Pinned. The mirror was overwritten once already (see registry/models.yaml), and
+  # a base model that moves under a run makes the run unreproducible. This sha was
+  # verified on 2026-08-25 to hold 15 shards / 55.56 GB, identical in shape to
+  # upstream aisingapore/Qwen-SEA-LION-v4.5-27B-IT.
+  revision: 81d9102bab84b46085cc0f8539efe578d33e29da
+
+  # The base supports 262,144. That is a SERVING number — you cannot train at it.
+  # Set this to what your longest training example actually needs; train.py prints
+  # the p95 and max token length of every split and names the rows it would cut.
+  # Rough H200 ceilings for this model, bf16 LoRA, batch 1, grad checkpointing on:
+  #   8k  comfortable · 16k comfortable · 32k tight · 64k+ needs load_in_4bit
+  max_seq_length: 16384
+
+  # 55.56 GB of bf16 weights on 141 GB of HBM3e. LoRA fits with room for activations;
+  # 4-bit is the fallback for long context, not the default.
+  load_in_4bit: false
+
+  # MUST stay bf16. Qwen3.5's gated-deltanet layers produce NaN grad norms in fp16 —
+  # Unsloth lists qwen3_5 in FORCE_FLOAT32 for exactly this reason. The H200 is
+  # Hopper, so bf16 is native; train.py refuses to start on a GPU without it.
+  dtype: bfloat16
+
+  # Qwen3_5ForConditionalGeneration is a VLM: a text decoder plus a vision tower.
+  # We train text only, so the tower is skipped — ~2.4 GB less VRAM and no random
+  # weights in the graph. Set false only if you ever train on images.
+  text_only: true
+
+  # Leave unset: the repo ships its own chat_template.jinja and it is the right one.
+  # This only tells train.py which marker pair splits prompt from completion.
+  chat_template: qwen-3
+
+  # AutoConfig cannot even read model_type qwen3_5 below this. Checked before the
+  # 55 GB download starts, not after.
+  min_transformers: "5.2.0"
 
 lora:
-  r: 32
-  alpha: 32
-  dropout: 0.0
+  r: 32                        # 16 is plenty for format-following; 64+ for new knowledge
+  alpha: 32                    # alpha == r is the sane default
+  dropout: 0.0                 # 0.0 is Unsloth's fast path
   bias: none
   target_modules:
     - q_proj
@@ -22,30 +59,56 @@ lora:
     - gate_proj
     - up_proj
     - down_proj
-  use_gradient_checkpointing: unsloth
+  use_gradient_checkpointing: unsloth   # the long-context path, ~30% less VRAM
+  use_rslora: false
   random_state: 3407
 
 data:
+  # Either a private HF dataset repo (preferred — data does not belong in git):
+  #   hub_repo: scalejade/pjp-clauses
+  #   revision: <commit sha>
+  #   train_split: train
+  #   eval_split: test
+  # or local JSONL, repo-relative:
   train: training/datasets/pjp-clauses/train.jsonl
   eval:  training/datasets/pjp-clauses/eval.jsonl
-  format: chatml              # matches the Qwen3 chat template
+
+  # Every row is {"messages": [{"role": ..., "content": ...}, ...]}.
+  # This is a thinking model: the template wraps every assistant turn in a <think>
+  # block, empty when your data has none. See training/datasets/README.md — the
+  # thinking decision has to match how the endpoint calls it.
+  train_on_responses_only: true   # loss on assistant turns only, not on our own prompt
 
 train:
+  # The batch is bounded by sequence length here, not by weights. At 16k, batch 1 x
+  # accum 16. At 8k you can usually run 2 x 8. Keep the product fixed either way.
   per_device_train_batch_size: 1
-  gradient_accumulation_steps: 8
-  warmup_steps: 10
+  gradient_accumulation_steps: 16     # effective batch = 16
   num_train_epochs: 2
-  learning_rate: 2.0e-4
-  optim: adamw_8bit
-  weight_decay: 0.01
+  max_steps: -1                       # >0 overrides epochs; use for a smoke run
+  learning_rate: 2.0e-4               # LoRA rate. Full-FT rates (1e-5) barely move an adapter.
+  warmup_ratio: 0.03
   lr_scheduler_type: linear
+  optim: adamw_torch_fused            # fused beats adamw_8bit when VRAM is not the constraint
+  weight_decay: 0.01
+  logging_steps: 1
+  save_strategy: steps
+  save_steps: 100
+  save_total_limit: 3
+  eval_steps: 100
+  per_device_eval_batch_size: 1
+  packing: false                      # packing corrupts loss masking on chat data
   seed: 3407
+  resume: false                       # true resumes from the last checkpoint in adapter_dir
 
 output:
   adapter_dir: training/adapters/pjp-clause-extraction-lora-v1
   push_to_hub: scalejade/pjp-clause-extraction-lora-v1
   private: true
-  merge_16bit: false          # true only when serving needs merged weights
+  # Adapter only. A merged 27B is 55 GB of upload, and Unsloth has to rewrite the
+  # VLM state dict on the way out; do it only if the serving path cannot take an
+  # adapter. If you do merge, smoke-test the merged repo before trusting it.
+  merge_16bit: false
 
 tracking:
-  wandb_project: scalejade-mlops
+  wandb_project: scalejade-mlops      # skipped automatically if WANDB_API_KEY is unset

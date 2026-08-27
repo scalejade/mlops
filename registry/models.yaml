@@ -15,19 +15,24 @@ models:
 
   - name: qwen-sea-lion-v4.5-27b-it
     hub_repo: scalejade/qwen-sea-lion-v4.5-27b-it
-    BROKEN: true
-    # 2026-08-20: this mirror does NOT contain v4.5. It holds 20 shards / 80.15 GB of
-    # Qwen3ForCausalLM @ max_position_embeddings=40960. Upstream v4.5 is 15 shards /
-    # 55.59 GB of Qwen3_5ForConditionalGeneration @ 262144. Something overwrote it —
-    # most likely clone_model.py re-run with a different SOURCE_MODEL against the same
-    # TARGET_MODEL in .env. Serve upstream directly until this is re-cloned.
+    revision: 81d9102bab84b46085cc0f8539efe578d33e29da
+    # 2026-08-20 this mirror was wrong: 20 shards / 80.15 GB of Qwen3ForCausalLM @
+    # 40960, i.e. not v4.5 at all — most likely clone_model.py re-run with a different
+    # SOURCE_MODEL against the same TARGET_MODEL in .env.
+    # 2026-08-25, re-checked against the Hub API: it is now 15 shards / 55.56 GB of
+    # Qwen3_5ForConditionalGeneration @ 262144, matching upstream shard-for-shard.
+    # The mirror was re-cloned on 2026-08-20T15:23Z. BROKEN cleared, sha pinned.
     upstream: aisingapore/Qwen-SEA-LION-v4.5-27B-IT
     relation: redistribution
     params: 27B
-    context_len: 40960              # verified on-pod 2026-08-20; the "262144" claim was wrong
+    context_len: 262144             # config.json text_config.max_position_embeddings
+    architecture: Qwen3_5ForConditionalGeneration   # hybrid linear attention + vision tower
     license: MIT
     status: candidate
-    notes: "Untested. Long context makes it the obvious next trial."
+    notes: >-
+      Fine-tuning base as of 2026-08-25 (training/configs/example-lora.yaml).
+      Needs transformers >=5.2.0 and bf16; unusable on the RunPod stock vLLM
+      worker, which is why it is candidate and not production.
 
   - name: gemma-4-31B-it
     hub_repo: scalejade/gemma-4-31b-it-baseline

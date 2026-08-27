@@ -1,0 +1,78 @@
+# The training pod: one H200, rented by the hour, driven by training/scripts/pod.py.
+#
+#   python training/scripts/pod.py gpus h200    # confirm the GPU type id first
+#   python training/scripts/pod.py plan
+#   python training/scripts/pod.py apply
+#   python training/scripts/pod.py stop         # <- the one that stops the bill
+#
+# Field names map 1:1 to the RunPod REST API, same as runpod/*/values.yaml, so
+# there is no translation layer to reason about. ${VAR} resolves from .env.
+
+name: h200-training
+description: Single-GPU Unsloth LoRA fine-tuning. Rented per run, stopped after.
+
+gpu:
+  # Verify this id against the account — the console label and the API id are not
+  # the same string, and a wrong id is a 400 at create time. `pod.py gpus h200`.
+  type: "NVIDIA H200"
+  count: 1                # Unsloth is single-GPU. A second H200 idles and still bills.
+  cloudType: SECURE       # SECURE | COMMUNITY. Community is cheaper and less reliable.
+
+  # Left unpinned on purpose: H200 capacity moves between datacenters, and this pod
+  # mounts no network volume, so it has no region it must agree with. Pin it only if
+  # you switch disk.type to network_volume — then it MUST equal the volume's region.
+  # dataCenterIds:
+  #   - "US-KS-2"
+
+disk:
+  # volume_disk    a disk that lives and dies with this pod. Fine for training:
+  #                the artifact is an adapter, and it goes to the Hub.
+  # network_volume the shared checkpoint store, if the H200 region has one.
+  type: volume_disk
+  volume_gb: 300          # /workspace: HF cache + checkpoints. The base is 55.56 GB;
+                          # LoRA checkpoints are small, but save_total_limit keeps 3.
+  container_gb: 100       # / : the image, pip wheels, CUDA. Unsloth's deps are large.
+  mount_path: /workspace
+
+  # Only read when type is network_volume. Resolved to an id by name at apply time.
+  volume_name: pbbi-volumes
+
+container:
+  # A CUDA image with torch already built. bitsandbytes, xformers and Triton all
+  # compile against it, so the image's torch version is the constraint the rest of
+  # the stack has to agree with — pin it, and pin it once.
+  #
+  # cu1281 / torch280: CUDA 12.8.1 has Hopper (sm_90) kernels, and torch 2.8 is new
+  # enough for current Unsloth without being so new that Unsloth has not caught up.
+  # Tag verified on Docker Hub 2026-08-25. Newer tags are named the same way:
+  # hub.docker.com/r/runpod/pytorch/tags — do not "upgrade" it mid-experiment.
+  image: runpod/pytorch:1.1.0-cu1281-torch280-ubuntu2404
+
+  ports:
+    - "22/tcp"            # ssh — how you actually drive the run
+    - "8888/http"         # jupyter, if you want it. Not required.
+
+  env:
+    # Everything cached under the mounted volume, so a stopped-and-restarted pod
+    # does not re-download the base model.
+    HF_HOME: /workspace/hf
+    HUGGINGFACE_HUB_CACHE: /workspace/hf/hub
+    HF_HUB_ENABLE_HF_TRANSFER: 1
+    HF_TOKEN: ${HF_TOKEN}
+    WANDB_API_KEY: ${WANDB_API_KEY:-}      # optional — no key, no tracking
+    WANDB_PROJECT: ${WANDB_PROJECT:-scalejade-mlops}
+    # Fragmentation is what kills a long-context run at 90% VRAM, not total size.
+    PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
+    TOKENIZERS_PARALLELISM: "false"
+    PUBLIC_KEY: ${SSH_PUBLIC_KEY:-}        # how ssh gets in; set it before apply
+
+# Not sent to RunPod. Read by `plan` so the number is on screen before something
+# starts billing by the second.
+cost:
+  # Verified 2026-08-25 via the RunPod API: "NVIDIA H200" (H200 SXM, 141 GB),
+  # $4.59/hr secure, $3.59/hr community. `pod.py gpus h200` reprints the live rate.
+  usd_per_hour: 4.59
+  note: |
+    A pod bills while RUNNING, idle or not. `pod.py stop` halts GPU billing and
+    keeps the disk (which keeps billing at the disk rate). `pod.py delete` stops
+    everything and loses the disk — so push the adapter to the Hub first.

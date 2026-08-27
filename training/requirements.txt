@@ -1,0 +1,27 @@
+# Installed ON THE POD by training/scripts/bootstrap.sh, not on your laptop.
+# Torch is NOT here on purpose: it comes with the RunPod image, and reinstalling
+# it is how you end up with a CUDA build that does not match the driver.
+#
+# These bounds are not style. They are the intersection of what Unsloth 2026.8.19
+# declares and what Qwen3.5 needs, read off the wheel's metadata and loader on
+# 2026-08-25. `pip install unsloth` alone resolves transformers to 5.15.1 and trl
+# to 1.10.0 — both outside Unsloth's supported range, and the run dies at import.
+
+unsloth>=2026.8.19            # first release with qwen3_5 (GDN + VLM) support
+unsloth_zoo>=2026.8.14        # bundles the flash-linear-attention Triton kernels
+
+# >=5.2.0: below it AutoConfig cannot read model_type qwen3_5 at all.
+# <=5.5.0 and the exclusions: Unsloth's own declared ceiling and known-bad builds.
+transformers>=5.2.0,<=5.5.0
+
+trl>=0.18.2,!=0.19.0,<=0.24.0 # trl 1.x is NOT supported by this Unsloth
+peft>=0.18.0,!=0.11.0
+accelerate>=0.34.1
+datasets>=3.4.1,!=4.0.*,!=4.1.0,<4.4.0
+torchvision                   # Unsloth imports it for the VLM load path
+bitsandbytes>=0.45.0          # only used when model.load_in_4bit is true
+sentencepiece>=0.2.0
+protobuf>=4.25.0
+huggingface_hub[hf_transfer]>=0.34.0
+pyyaml>=6.0
+wandb>=0.19.0

@@ -44,10 +44,12 @@ mlops/
 │       ├── model.config       vLLM engine args for serving this model
 │       └── weights/           gitignored — local snapshot only
 │
-├── training/                  Unsloth fine-tuning
+├── training/                  Unsloth fine-tuning on a rented H200
+│   ├── pod.yaml               the H200 pod: GPU, disk, image, env
+│   ├── requirements.txt       installed on the pod, not on your laptop
 │   ├── configs/               one YAML per run — the config IS the experiment record
 │   ├── datasets/              schema + build scripts (real data lives in private HF repos)
-│   ├── scripts/               training entrypoints
+│   ├── scripts/               pod.py (rent/stop the GPU), bootstrap.sh, train.py
 │   └── adapters/              local LoRA output — gitignored
 │
 ├── runpod/                    inference — deploy from your laptop
@@ -129,8 +131,17 @@ an entry to `registry/models.yaml`. A model that isn't in the registry doesn't e
 
 1. Build the dataset, push it to a **private** HF dataset repo, note the revision.
 2. Copy `training/configs/example-lora.yaml` → `configs/<task>-<date>.yaml`, edit it.
-3. Run training against that config. Nothing gets tweaked at the command line — if it
-   isn't in the config file, it didn't happen and it can't be reproduced.
+3. Rent the GPU, run against that config, **stop the GPU**:
+
+```bash
+python training/scripts/pod.py apply       # 1x H200, ~$4.59/hr, billing starts here
+# ssh in: bash training/scripts/bootstrap.sh, then
+#         python training/scripts/train.py training/configs/<task>-<date>.yaml
+python training/scripts/pod.py stop        # billing stops HERE, not when training ends
+```
+
+   Nothing gets tweaked at the command line — if it isn't in the config file, it
+   didn't happen and it can't be reproduced.
 4. Push the adapter to the Hub, register it in `registry/models.yaml`.
 5. Evaluate. Then, and only then, consider deploying.
 
