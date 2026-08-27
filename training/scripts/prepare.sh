@@ -93,7 +93,14 @@ if [ "$SKIP_MODEL" -eq 0 ] && [ "$FREE_GB" -lt "$((MODEL_GB + 20))" ]; then
 Raise disk.volume_gb in training/pod.yaml (it is 300 by default) or clear $WORKSPACE/hf."
 fi
 
-[ -n "${HF_TOKEN:-}" ] || echo "!!  HF_TOKEN not set -- private scalejade/ repos will 401"
+# The whole point of doing this in preflight: a bad token 401s the 56 GB download
+# and every push, and finding out here costs seconds instead of after pip.
+set +e
+python "$REPO/training/scripts/hf_auth.py" | sed 's/^/    /'
+AUTH=${PIPESTATUS[0]}
+set -e
+[ "$AUTH" -eq 1 ] && fail "fix HF_TOKEN and re-run. Nothing has been installed or \
+downloaded yet."
 
 # --- 1. dependencies ---------------------------------------------------------
 # bootstrap.sh owns this: caches on the volume, pip against the image's torch,
@@ -108,8 +115,19 @@ fi
 
 export HF_HOME="${HF_HOME:-$WORKSPACE/hf}"
 export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
-export HF_HUB_ENABLE_HF_TRANSFER=1
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+
+# HF_HUB_ENABLE_HF_TRANSFER=1 with hf_transfer missing does not fall back — it
+# raises, mid-download. pod.yaml sets the variable for every shell on the pod, so
+# turn it off here rather than let a 56 GB pull die on an accelerator we do not
+# have. (hub 1.x dropped the [hf_transfer] extra; requirements.txt asks for the
+# package directly, but this pod may predate that.)
+if python -c "import hf_transfer" 2>/dev/null; then
+  export HF_HUB_ENABLE_HF_TRANSFER=1
+else
+  echo "!!  hf_transfer not installed -- downloading without it (slower, but it works)"
+  unset HF_HUB_ENABLE_HF_TRANSFER
+fi
 export TOKENIZERS_PARALLELISM=false
 
 # --- 2. verify the intersection actually holds -------------------------------

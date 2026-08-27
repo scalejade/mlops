@@ -66,12 +66,15 @@ PY
 } | tee "$WORKSPACE/versions.txt"
 
 # --- credentials -------------------------------------------------------------
-if [ -n "${HF_TOKEN:-}" ]; then
-  python -c "from huggingface_hub import login; import os; login(os.environ['HF_TOKEN'])"
-  echo "==> hf login ok"
-else
-  echo "!!  HF_TOKEN not set — private scalejade/ repos will 401"
-fi
+# hf_auth.py rather than login(): HF_TOKEN already takes precedence over a stored
+# credential, and login() raises a 30-line traceback on a bad token. A rejected
+# token is fatal — everything after this authenticates with it — but an unset one
+# (exit 2) is only a warning, since public repos still work.
+set +e
+python "$REPO/training/scripts/hf_auth.py"
+AUTH=$?
+set -e
+[ "$AUTH" -eq 1 ] && exit 1
 [ -n "${WANDB_API_KEY:-}" ] || echo "!!  WANDB_API_KEY not set — the run will not be tracked"
 
 cat <<'DONE'

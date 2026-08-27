@@ -22,6 +22,11 @@ torchvision                   # Unsloth imports it for the VLM load path
 bitsandbytes>=0.45.0          # only used when model.load_in_4bit is true
 sentencepiece>=0.2.0
 protobuf>=4.25.0
-huggingface_hub[hf_transfer]>=0.34.0
+# hf_transfer as its own requirement, NOT as huggingface_hub[hf_transfer]: hub
+# 1.x dropped that extra, so the bracket form installs the hub and silently skips
+# the accelerator ("does not provide the extra 'hf-transfer'"), and then
+# HF_HUB_ENABLE_HF_TRANSFER=1 fails the download it was meant to speed up.
+huggingface_hub>=0.34.0
+hf_transfer>=0.1.6
 pyyaml>=6.0
 wandb>=0.19.0
