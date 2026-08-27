@@ -155,10 +155,27 @@ Pin callers to a tag or a sha, never to `main`. `main` is whatever ran last, whi
 is the failure this repo pins the base model's sha to avoid. The generated model
 card shows the `load_adapter(..., revision=...)` call with the right pin in it.
 
-Do **not** version by pushing adapters onto `scalejade/qwen-sea-lion-v4.5-27b-it`.
-That repo is a `redistribution` mirror that has to stay shard-for-shard identical
-to upstream — `registry/models.yaml` records the day it silently wasn't, and the
-sha pinned there is what everything else trusts.
+### Pushing onto a branch of the base repo
+
+`--push-branch <name>` writes to a branch instead of the default one, which is the
+only supported way to target the base model's own repo:
+
+```bash
+python training/scripts/test.py --dataset --steps 60 \
+    --push scalejade/qwen-sea-lion-v4.5-27b-it --push-branch lora-smoke-v0.2.0
+```
+
+`main` is untouched, so the sha `registry/models.yaml` pins stays valid. The push
+refuses to run against that repo *without* a branch, and refuses `--push-branch
+main` outright — adapter files committed over a 15-shard mirror is the one
+mistake here that costs more than a rerun.
+
+It still is not the recommended layout. A branch of a model repo looks like a
+model: `from_pretrained(repo, revision="lora-smoke-v0.2.0")` finds an
+`adapter_config.json` where 15 shards should be. And `registry/models.yaml` is one
+entry per repo by its own first line, which branch-versions break. Prefer a
+separate adapter repo with tags; use this when something downstream genuinely
+needs one repo id.
 
 **The push is public by default and the adapter is not a model.** It has seen a
 few hundred generic rows and no eval, which is what the generated card says in its

@@ -769,11 +769,13 @@ def registry_entry(args, meta: dict, sha: str, version: str | None) -> str:
     should arrive as a reviewed PR.
     """
     version_line = f"\n    version: {version}" if version else ""
+    branch_line = (f"\n    branch: {args.push_branch}"
+                   if getattr(args, "push_branch", None) else "")
     source = args.dataset or args.data or "synthetic rows"
     return f"""
   - name: {args.push.split('/')[-1]}
     hub_repo: {args.push}
-    revision: {sha}{version_line}
+    revision: {sha}{branch_line}{version_line}
     upstream: {args.model}
     relation: finetune
     params: 27B                     # a LoRA over a 27B base; the adapter itself is tiny
@@ -787,24 +789,41 @@ def registry_entry(args, meta: dict, sha: str, version: str | None) -> str:
 """
 
 
+PROTECTED_BRANCHES = {"main", "master"}
+
+
 def stage_push(args, model, tok, meta: dict) -> None:
     from huggingface_hub import HfApi
 
     token = os.environ.get("HF_TOKEN")
     if not token:
         raise Fail("--push needs HF_TOKEN in the environment (pod.py passes it "
-                   "through from .env; bootstrap.sh logs in with it)")
+                   "through from .env; hf_auth.py checks it)")
 
+    branch = args.push_branch
     visibility = "private" if args.private else "PUBLIC"
-    info(f"target          {args.push}  ({visibility})")
+    info(f"target          {args.push}  ({visibility})"
+         + (f"  branch {branch}" if branch else ""))
+
+    # Pushing into the base model's own repo is legitimate -- a branch is a
+    # separate ref and main keeps the sha everything else pins -- but only ever
+    # onto a branch. Never let a bad flag combination write adapter files over a
+    # 15-shard mirror's main.
+    if args.push == args.model and not branch:
+        raise Fail(
+            f"--push {args.push} is the base model's own repo, and without "
+            f"--push-branch this would commit adapter files onto its main. That "
+            f"mirror has to stay identical to upstream and registry/models.yaml "
+            f"pins its sha. Use --push-branch <name>, or push to its own repo."
+        )
+    if branch in PROTECTED_BRANCHES:
+        raise Fail(f"--push-branch {branch} is the default branch, which is what "
+                   f"--push already writes to. Name a different branch.")
     if not args.private:
         info("                a public repo is world-readable and indexed the moment "
              "it exists; deleting it later does not un-publish it")
 
     api = HfApi(token=token)
-    # create_repo first: pushing to a repo that already exists cannot change its
-    # visibility, so --private is only meaningful at creation. Say so rather than
-    # let it silently not apply.
     created = api.create_repo(args.push, private=args.private, exist_ok=True,
                               repo_type="model")
     existing = getattr(created, "private", None)
@@ -813,33 +832,47 @@ def stage_push(args, model, tok, meta: dict) -> None:
              f"{'private' if existing else 'public'}; a push does not change that. "
              f"Flip it in the repo settings if it is wrong.")
 
+    if branch:
+        # exist_ok: re-running onto the same branch adds a commit, which is the
+        # point of a branch. It is forked from main at creation.
+        api.create_branch(args.push, branch=branch, exist_ok=True, repo_type="model")
+        info(f"branch          {branch} (main is untouched)")
+
     version = resolve_version(api, args.push, args.version)
     if version:
         note = "  (next after the tags already on the repo)" if args.version == "auto" else ""
         info(f"version         {version}{note}")
 
-    model.push_to_hub(args.push, token=token, private=args.private)
-    tok.push_to_hub(args.push, token=token, private=args.private)
-
-    # peft writes its own stub card on push; ours replaces it, so it has to go last.
+    # Upload the folder stage_save already wrote, rather than re-serialising from
+    # VRAM: one call, one commit, and `revision` applies to all of it. Going
+    # through model.push_to_hub would need the branch threaded through several
+    # library calls, and the one that forgot it would write to main.
     card = Path(args.adapter_dir) / "README.md"
-    card.parent.mkdir(parents=True, exist_ok=True)
     card.write_text(model_card(args, meta, version))
-    api.upload_file(path_or_fileobj=str(card), path_in_repo="README.md",
-                    repo_id=args.push, repo_type="model")
+    commit = api.upload_folder(
+        repo_id=args.push,
+        folder_path=str(args.adapter_dir),
+        revision=branch,                  # None == the default branch
+        repo_type="model",
+        commit_message=f"{version or 'untagged'}: {meta.get('steps', '?')} steps on "
+                       f"{meta.get('rows', '?')} rows via training/scripts/test.py",
+        ignore_patterns=["checkpoints/*", "**/optimizer.pt", "**/rng_state*"],
+    )
 
-    files = [f for f in api.list_repo_files(args.push) if not f.startswith(".")]
+    files = [f for f in api.list_repo_files(args.push, revision=branch)
+             if not f.startswith(".")]
     if not any(f.startswith("adapter_model") for f in files):
         raise Fail(f"pushed, but {args.push} has no adapter_model file: {files}")
 
-    # The sha of main as it now stands. This is what registry/models.yaml pins --
+    # The sha of what was just written. This is what registry/models.yaml pins --
     # the same discipline the base model itself is pinned with.
-    sha = api.model_info(args.push).sha
+    sha = getattr(commit, "oid", None) or api.model_info(args.push, revision=branch).sha
     if version:
         api.create_tag(args.push, tag=version, revision=sha, repo_type="model")
         info(f"tagged          {version} -> {sha[:12]}")
 
-    ok(f"https://huggingface.co/{args.push}   ({len(files)} files, {visibility})")
+    where = f"/tree/{branch}" if branch else ""
+    ok(f"https://huggingface.co/{args.push}{where}   ({len(files)} files, {visibility})")
     info(f"commit          {sha}")
     head("registry/models.yaml -- paste this in if you are keeping it")
     print(registry_entry(args, meta, sha, version))
@@ -875,6 +908,10 @@ def main() -> int:
                          f"default. Bare --push means {DEFAULT_PUSH_REPO}.")
     ap.add_argument("--private", action="store_true",
                     help="create the pushed repo private instead of public")
+    ap.add_argument("--push-branch", metavar="NAME", default=None,
+                    help="push onto this branch instead of the default one. The "
+                         "only way to target the base model's own repo, where main "
+                         "must keep matching upstream.")
     ap.add_argument("--version", nargs="?", const="auto", default=None,
                     metavar="TAG",
                     help="tag the pushed commit (--version v0.2.0). Bare --version "
@@ -897,6 +934,8 @@ def main() -> int:
     args.lora_r = args.lora_r if args.lora_r is not None else (16 if args.push else 8)
     if args.data and args.dataset:
         return sys.exit("  error  pass --data or --dataset, not both\n")
+    if args.push_branch and not args.push:
+        return sys.exit("  error  --push-branch only means something with --push\n")
     if args.version and not args.push:
         return sys.exit("  error  --version only means something with --push\n")
     if args.push and args.until != STAGES[-1]:
