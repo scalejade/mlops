@@ -43,3 +43,23 @@ models:
     license: gemma
     status: failed
     notes: "Architecture unsupported by vLLM 0.27.1 (RunPod template v2.25.1). Revisit on newer vLLM."
+
+  - name: qwen-sea-lion-v4.5-27b-pbbi
+    hub_repo: scalejade/qwen-sea-lion-v4.5-27b-pbbi
+    revision: 8d32a4b9c89c9272ae8d660792182da7950955a2
+    # 2026-09-12 Hub-side duplicate of scalejade/qwen-sea-lion-v4.5-27b-it @81d9102,
+    # taken as the dedicated PBBI copy so PBBI work cannot disturb the shared mirror.
+    # verify_model.py against upstream on the same day: 15/15 shards, 55.56 GB,
+    # Qwen3_5ForConditionalGeneration @ 262144 — matches shard-for-shard.
+    upstream: aisingapore/Qwen-SEA-LION-v4.5-27B-IT
+    cloned_from: scalejade/qwen-sea-lion-v4.5-27b-it
+    relation: redistribution
+    params: 27B
+    context_len: 262144
+    architecture: Qwen3_5ForConditionalGeneration
+    license: MIT
+    status: candidate
+    notes: >-
+      PBBI copy, weights identical to the v4.5 mirror at clone time. Same ceiling:
+      needs transformers >=5.2.0 and bf16, and does not run on the RunPod stock
+      vLLM worker. Not evaluated and not deployed yet.
