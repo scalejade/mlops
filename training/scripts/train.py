@@ -26,6 +26,7 @@ import inspect
 import json
 import os
 import random
+import re
 import sys
 from pathlib import Path
 
@@ -105,7 +106,7 @@ def load_split(data: dict, which: str) -> Dataset | None:
     or from local JSONL:
 
         data:
-          train: training/datasets/pjp-clauses/train.jsonl
+          train: preparation/data/train.jsonl
     """
     if data.get("hub_repo"):
         split = data.get(f"{which}_split")
@@ -129,7 +130,7 @@ def load_split(data: dict, which: str) -> Dataset | None:
     if "messages" not in ds.column_names:
         raise Fail(
             f"the {which} split has columns {ds.column_names} but every row must have "
-            f"a 'messages' list of {{role, content}} objects. See training/datasets/README.md."
+            f"a 'messages' list of {{role, content}} objects. See preparation/FORMAT.md."
         )
     return ds
 
@@ -157,6 +158,125 @@ def render(ds: Dataset, tokenizer, max_seq_length: int, label: str) -> Dataset:
         info(f"       {over} row(s) exceed max_seq_length={max_seq_length:,} and WILL be "
              f"truncated mid-example. Raise the window or drop those rows.")
     return ds
+
+
+# ---------------------------------------------------------------- versioning
+
+SEMVER = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
+
+
+def resolve_version(api, repo: str, requested: str | None) -> str | None:
+    """
+    Pick the tag this push gets, BEFORE anything is trained -- a tag that is
+    already taken should cost nothing, not surface after 45 minutes on an H200.
+
+    The tag is the readable handle; the commit sha it points at is the real
+    version, because a tag can be moved or deleted and a sha cannot. Both are
+    printed, and it is the sha that goes in registry/models.yaml.
+    """
+    if not requested:
+        return None
+    try:
+        tags = [t.name for t in api.list_repo_refs(repo).tags]
+    except Exception:      # noqa: BLE001 -- a repo created seconds ago has no refs
+        tags = []
+
+    if requested != "auto":
+        if requested in tags:
+            raise Fail(
+                f"tag {requested} already exists on {repo}. A version that moves is "
+                f"not a version -- pick the next one in output.version, or delete "
+                f"that tag deliberately."
+            )
+        return requested
+
+    versions = sorted(tuple(int(g) for g in m.groups())
+                      for m in (SEMVER.match(t) for t in tags) if m)
+    if not versions:
+        return "v0.1.0"
+    major, minor, patch = versions[-1]
+    return f"v{major}.{minor}.{patch + 1}"
+
+
+def model_card(cfg: dict, meta: dict, version: str | None) -> str:
+    """
+    An adapter with no card is one nobody can trace. The first line says it has
+    not passed eval/, because a training loss on its own will not stop someone
+    wiring it into production.
+    """
+    m, out = cfg["model"], cfg["output"]
+    pin = version or meta["sha"][:12]
+    return f"""---
+base_model: {m['base']}
+library_name: peft
+tags: [lora, unsloth, clause-extraction, bahasa-indonesia]
+---
+
+# {out['push_to_hub'].split('/')[-1]}  {version or '(untagged)'}
+
+LoRA adapter for Stage-2B clause extraction in Perjanjian Baku BI: an Indonesian
+PJP standard-form contract in, its clauses as JSON out.
+
+**Not evaluated.** `status: candidate` until `eval/` scores it against a golden
+set the model has never seen. A lower training loss is not evidence of anything.
+
+| | |
+|---|---|
+| Base | `{m['base']}` @ `{m.get('revision', 'main')[:12]}` |
+| Run | `{cfg['run_name']}` |
+| Data | {meta['rows']} rows, {meta['train_tokens']} |
+| Steps | {meta['steps']} ({cfg['train'].get('num_train_epochs')} epochs, effective batch {meta['batch']}) |
+| Loss | {meta['loss']:.4f} |
+| LoRA | r={cfg.get('lora', {}).get('r', 32)}, alpha={cfg.get('lora', {}).get('alpha', 32)} |
+| Trained at | {m['max_seq_length']:,} tokens |
+
+## Use
+
+```python
+model.load_adapter("{out['push_to_hub']}", revision="{pin}")
+```
+
+Pin the tag or the sha, never `main` -- `main` is whatever ran last.
+
+## Serving contract
+
+The prompt shape this was trained on is not optional. It is the request
+perjanjian-baku-bi's clause_extraction.go makes: the system prompt
+`preparation/prompts/extraction_system.md` byte-for-byte, and a user message of
+`DOCUMENT:\n` + the PDF text after `pdftotext -layout` and `keepIndonesianOnly()`.
+A different prompt or text pipeline is an input the adapter never saw in training.
+
+Trained without reasoning in the assistant turns: serve with
+`enable_thinking: false`, or strip the empty `<think></think>`.
+
+The run config that produced this is committed as
+`training/configs/{meta['config']}` and is also in this repo as `run-config.yaml`.
+"""
+
+
+def registry_entry(cfg: dict, meta: dict, version: str | None) -> str:
+    """
+    The entry to paste into registry/models.yaml. Printed, not written: the pod's
+    checkout is not where anything gets committed from, and a registry entry
+    should arrive as a reviewed PR.
+    """
+    m, out = cfg["model"], cfg["output"]
+    version_line = f"\n    version: {version}" if version else ""
+    return f"""
+  - name: {out['push_to_hub'].split('/')[-1]}
+    hub_repo: {out['push_to_hub']}
+    revision: {meta['sha']}{version_line}
+    upstream: {m['base']}
+    relation: finetune
+    params: 27B                     # a LoRA over a 27B base; the adapter itself is tiny
+    context_len: {m['max_seq_length']}                # what it was TRAINED at, not what the base serves
+    license: MIT
+    status: candidate               # nothing is production until eval/ says so
+    notes: >-
+      Clause-extraction LoRA from training/configs/{meta['config']},
+      {meta['steps']} steps on {meta['rows']} rows. Base pinned at
+      {m.get('revision', 'main')[:12]}. Not evaluated.
+"""
 
 
 # ------------------------------------------------------------------ trainer
@@ -307,6 +427,26 @@ def main() -> None:
             info("WANDB_API_KEY not set — running without experiment tracking")
 
     check_versions(cfg)
+
+    # Resolve the push target before anything expensive. A missing HF_TOKEN or a
+    # tag that is already taken used to surface after the run, when the adapter
+    # exists only in the pod's disk and the meter has been running for an hour.
+    push_repo = out.get("push_to_hub")
+    api = version = None
+    if push_repo:
+        if not os.environ.get("HF_TOKEN"):
+            raise Fail("output.push_to_hub is set but HF_TOKEN is not in the "
+                       "environment. pod.py passes it from .env; on a pod you "
+                       "prepared by hand, export it before training.")
+        from huggingface_hub import HfApi
+        api = HfApi(token=os.environ["HF_TOKEN"])
+        api.create_repo(push_repo, private=bool(out.get("private", True)),
+                        exist_ok=True, repo_type="model")
+        version = resolve_version(api, push_repo, out.get("version", "auto"))
+        head("push target")
+        info(f"repo            {push_repo}  ({'private' if out.get('private', True) else 'PUBLIC'})")
+        info(f"version         {version or 'untagged — pin the commit sha instead'}")
+
     model, tokenizer = build(cfg)
 
     head("data")
@@ -392,22 +532,63 @@ def main() -> None:
     (adapter_dir / "run-config.yaml").write_text(args.config.read_text())
     info(f"adapter         {adapter_dir}")
 
-    repo = out.get("push_to_hub")
-    if repo:
-        token = os.environ.get("HF_TOKEN")
-        if not token:
-            raise Fail("output.push_to_hub is set but HF_TOKEN is not in the environment")
-        kw = dict(token=token, private=bool(out.get("private", True)))
+    if push_repo:
         if out.get("merge_16bit"):
-            model.push_to_hub_merged(repo, tokenizer, save_method="merged_16bit", **kw)
-            info(f"pushed merged   https://huggingface.co/{repo}")
+            # 55 GB of rewritten weights. No card and no tag here: this path exists
+            # for a serving stack that cannot take an adapter, and it is slow enough
+            # that nobody should reach it by accident.
+            model.push_to_hub_merged(push_repo, tokenizer, save_method="merged_16bit",
+                                     token=os.environ["HF_TOKEN"],
+                                     private=bool(out.get("private", True)))
+            info(f"pushed merged   https://huggingface.co/{push_repo}")
         else:
-            model.push_to_hub(repo, **kw)
-            tokenizer.push_to_hub(repo, **kw)
-            info(f"pushed adapter  https://huggingface.co/{repo}")
+            meta = {
+                "rows": len(train_ds),
+                "train_tokens": f"max {max_len:,} tok/row",
+                "steps": stats.global_step,
+                "batch": int(t.get("per_device_train_batch_size", 1))
+                         * int(t.get("gradient_accumulation_steps", 8)),
+                "loss": stats.training_loss,
+                "config": args.config.name,
+                "sha": "",
+            }
+            # Upload the folder save_pretrained just wrote rather than re-serialising
+            # from VRAM: one call, one commit, and the returned sha covers all of it.
+            commit = api.upload_folder(
+                repo_id=push_repo,
+                folder_path=str(adapter_dir),
+                repo_type="model",
+                commit_message=f"{version or 'untagged'}: {stats.global_step} steps on "
+                               f"{len(train_ds)} rows ({cfg['run_name']})",
+                ignore_patterns=["checkpoints/*", "**/optimizer.pt", "**/rng_state*"],
+            )
+            meta["sha"] = (getattr(commit, "oid", None)
+                           or api.model_info(push_repo).sha)
+
+            files = [f for f in api.list_repo_files(push_repo) if not f.startswith(".")]
+            if not any(f.startswith("adapter_model") for f in files):
+                raise Fail(f"pushed, but {push_repo} has no adapter_model file: {files}")
+
+            # The card is written after the upload so it can quote the sha, then
+            # committed on its own. A repo whose card contradicts its weights is
+            # worse than one with no card.
+            (adapter_dir / "README.md").write_text(model_card(cfg, meta, version))
+            api.upload_file(path_or_fileobj=str(adapter_dir / "README.md"),
+                            path_in_repo="README.md", repo_id=push_repo,
+                            repo_type="model", commit_message="model card")
+
+            if version:
+                api.create_tag(push_repo, tag=version, revision=meta["sha"],
+                               repo_type="model")
+                info(f"tagged          {version} -> {meta['sha'][:12]}")
+            info(f"pushed adapter  https://huggingface.co/{push_repo}  ({len(files)} files)")
+            info(f"commit          {meta['sha']}")
+
+            head("registry/models.yaml — paste this in")
+            print(registry_entry(cfg, meta, version))
 
     head("next")
-    info("1. add the adapter to registry/models.yaml (relation: finetune)")
+    info("1. paste the registry/models.yaml entry printed above into a PR")
     info("2. run eval/ against it — a lower training loss is not evidence of anything")
     info("3. only then deploy, and update registry/deployments.yaml in the same PR")
     info("4. python training/scripts/pod.py stop   # the pod bills until you do")

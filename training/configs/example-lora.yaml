@@ -70,12 +70,12 @@ data:
   #   train_split: train
   #   eval_split: test
   # or local JSONL, repo-relative:
-  train: training/datasets/pjp-clauses/train.jsonl
-  eval:  training/datasets/pjp-clauses/eval.jsonl
+  train: preparation/data/train.jsonl
+  eval:  preparation/data/eval.jsonl
 
   # Every row is {"messages": [{"role": ..., "content": ...}, ...]}.
   # This is a thinking model: the template wraps every assistant turn in a <think>
-  # block, empty when your data has none. See training/datasets/README.md — the
+  # block, empty when your data has none. See preparation/FORMAT.md — the
   # thinking decision has to match how the endpoint calls it.
   train_on_responses_only: true   # loss on assistant turns only, not on our own prompt
 

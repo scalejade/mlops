@@ -6,6 +6,7 @@ Rent, watch and stop the H200 training pod, from your laptop.
     python training/scripts/pod.py plan            # validate + price, sends nothing
     python training/scripts/pod.py apply           # create (or update) the pod
     python training/scripts/pod.py status          # what is live, and the ssh command
+    python training/scripts/pod.py ssh-target      # "root@<ip> <port>", for the Makefile
     python training/scripts/pod.py stop            # stop billing, keep the disk
     python training/scripts/pod.py start           # resume
     python training/scripts/pod.py delete          # tear down, disk and all
@@ -366,6 +367,28 @@ def cmd_status() -> None:
     print()
 
 
+def cmd_ssh_target() -> None:
+    """
+    Print "root@<publicIp> <port>" for the pod's exposed 22/tcp, and nothing else,
+    so the Makefile can ssh/scp without anyone copying an address by hand. Fails
+    (non-zero, message on stderr) when the pod is missing, not running, or has
+    no public ssh port yet -- right after `apply` it can take a minute to appear.
+    """
+    cfg = load_config()
+    live = find_pod(cfg["name"])
+    if not live:
+        raise Fail(f"pod '{cfg['name']}' is not on this account — make pod-up first")
+    if live.get("desiredStatus") != "RUNNING":
+        raise Fail(f"pod '{cfg['name']}' is {live.get('desiredStatus')} — make pod-start first")
+    ip, ports = live.get("publicIp"), live.get("portMappings") or {}
+    port = ports.get("22") or ports.get(22)
+    if not ip or not port:
+        raise Fail(f"pod '{cfg['name']}' has no public ssh port yet "
+                   f"(publicIp={ip!r}, portMappings={ports!r}). Wait a minute and retry; "
+                   f"if it persists, check pod.yaml exposes 22/tcp.")
+    print(f"root@{ip} {port}")
+
+
 def cmd_power(action: str) -> None:
     cfg = load_config()
     live = find_pod(cfg["name"])
@@ -398,6 +421,7 @@ def main() -> None:
     sub.add_parser("plan", help="validate + price, send nothing")
     sub.add_parser("apply", help="create or update the pod")
     sub.add_parser("status", help="what is live")
+    sub.add_parser("ssh-target", help='print "root@<ip> <port>" for scripts')
     sub.add_parser("stop", help="stop billing, keep the disk")
     sub.add_parser("start", help="resume")
     sub.add_parser("delete", help="tear down, disk and all")
@@ -412,6 +436,8 @@ def main() -> None:
         cmd_plan(apply=True)
     elif args.cmd == "status":
         cmd_status()
+    elif args.cmd == "ssh-target":
+        cmd_ssh_target()
     elif args.cmd in ("stop", "start"):
         cmd_power(args.cmd)
     elif args.cmd == "delete":

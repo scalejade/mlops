@@ -18,7 +18,6 @@ runpod/
   deploy.py
   pbbi-volumes/          kind: volume       chart.yaml  values.yaml
   pbbi-serverles/      kind: serverless   chart.yaml  values.yaml
-  requests/                   generated payloads (gitignored — they embed client documents)
 ```
 
 Adding a fourth service means adding a fourth directory. `deploy.py` discovers charts

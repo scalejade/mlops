@@ -1,0 +1,6 @@
+# Laptop-side data preparation: preparation/build.py, app_request.py, the tests.
+# No torch, no transformers, no GPU. Also needs pdftotext (poppler):
+#   macOS: brew install poppler      Ubuntu: apt install poppler-utils
+openpyxl>=3.1
+tokenizers>=0.20
+pyyaml>=6.0

@@ -7,11 +7,15 @@ training config. What lives here is the schema, the build script, and a small
 redacted sample.
 
 ```
-training/datasets/
-  <task-name>/
-    README.md          where the data came from, how many rows, how it was built
-    build.py           raw -> jsonl, deterministic and re-runnable
-    sample.jsonl       ~10 redacted rows, so a reviewer can see the shape
+preparation/
+    README.md          where the data comes from, the splits, how it is built
+    build.py           raw/<folder>/ -> data/ train / eval / test .jsonl, re-runnable
+    app_request.py     the app's extraction call, rebuilt offline
+    serving_text.py    the app's PDF text pipeline, ported
+    prompts/           the app's system prompt, byte-for-byte
+    raw/               one folder per document: PDF + xlsx + annotation.txt (gitignored)
+    data/              build output (gitignored, except data/sample.jsonl: 8 redacted
+                       rows, so a reviewer can see the shape)
 ```
 
 ## Format
@@ -70,12 +74,18 @@ will decide on its own, per request. That is the worst of the three.
 
 ## Splits
 
-Commit a fixed train/eval split **by row id**, never a random seed at load time. A
-split that moves between runs makes every comparison between runs meaningless.
+The split is fixed **per document**, in that document's `annotation.txt`
+(`Split : Train | Validation | Test`), never by a random seed at load time and
+never by row: windows cut from one contract share its wording, so splitting by
+row would put near-copies of training text into eval. A split that moves between
+runs makes every comparison between runs meaningless. See `README.md`, "The
+three splits".
 
-The eval split here is for watching the loss curve, and that is all it is for. It is
-not the quality gate — that is `eval/`, against a human-verified golden set. A better
-eval loss is not evidence that the product improved.
+`eval.jsonl` (Validation) is for watching the loss curve, and that is all it is
+for. `test.jsonl` (Test) is held out for scoring generations — never trained on,
+never used for loss. Neither is the final quality gate — that is `eval/`, against
+a human-verified golden set. A better eval loss is not evidence that the product
+improved.
 
 ## Length
 

@@ -5,7 +5,7 @@ Smoke test: prove the Unsloth stack actually trains this base on this pod.
     python training/scripts/test.py                    # full run, ~5 min after cache
     python training/scripts/test.py --until tokenizer  # costs nothing, downloads ~5 MB
     python training/scripts/test.py --steps 5 --max-seq-length 512
-    python training/scripts/test.py --data training/datasets/pjp-clauses/sample.jsonl
+    python training/scripts/test.py --data preparation/data/sample.jsonl
 
 A trial run that trains a little on real rows and publishes the adapter:
 
@@ -86,7 +86,7 @@ DEFAULT_PUSH_REPO = "scalejade/qwen-sea-lion-v4.5-27b-lora-smoke"
 ROLE_MAP = {"human": "user", "user": "user", "gpt": "assistant",
             "assistant": "assistant", "system": "system", "tool": "tool"}
 
-# Six rows in the shape training/datasets/README.md specifies: one 'messages'
+# Six rows in the shape preparation/FORMAT.md specifies: one 'messages'
 # column, assistant turn is the exact string a caller has to parse. Deliberately
 # trivial and repetitive -- the point is that the loss moves, not that the model
 # learns anything.
@@ -450,7 +450,7 @@ def build_dataset(args, tok) -> Dataset:
         ds = load_dataset("json", data_files=str(path), split="train")
         if "messages" not in ds.column_names:
             raise Fail(f"{path.name} has columns {ds.column_names}; every row needs a "
-                       f"'messages' list. See training/datasets/README.md.")
+                       f"'messages' list. See preparation/FORMAT.md.")
         ds = ds.select(range(min(len(ds), args.rows)))
         info(f"data            {path.name}, {len(ds)} rows (capped at --rows)")
     else:

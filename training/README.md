@@ -65,55 +65,106 @@ torch 2.8 / CUDA 12.8 image.
 
 | Path | What |
 |---|---|
+| `run.sh` | **One entry point on the pod.** Checks the config and its data, prepares the pod if needed, dry-runs, then trains in the background. Does not create or stop the pod — billing stays an explicit command. |
 | `pod.yaml` | The H200 pod: GPU, region, disk, image, env. Maps 1:1 to the RunPod API. |
 | `requirements.txt` | Installed **on the pod**. Torch deliberately excluded — it comes with the image. |
 | `configs/` | One YAML per run. Committed. The config is the experiment record. |
-| `datasets/` | Schema and build scripts. Real data goes to a private HF dataset repo. |
+| `configs/example-lora.yaml` | Annotated reference. Copy it; do not run it. |
+| `configs/pbbi-extraction-2026-10-10.yaml` | The live PBBI clause-extraction run. |
+| `../preparation/` | Data prep (top-level, outside training/): `raw/` (one folder per document, gitignored), `build.py`, `app_request.py`, `serving_text.py`, `prompts/extraction_system.md`, `FORMAT.md`, `README.md`. Builds `data/train.jsonl` / `data/eval.jsonl` / `data/test.jsonl` — the config already points at the first two. |
 | `scripts/pod.py` | Create / status / **stop** / delete the pod, from your laptop. |
-| `scripts/prepare.sh` | **Start here on a new pod.** Deps + version check + the 56 GB base. |
+| `scripts/prepare.sh` | Deps + version check + the 56 GB base. `run.sh` calls it when needed. |
 | `scripts/bootstrap.sh` | Caches, dependencies, versions, HF login. Called by `prepare.sh`. |
-| `scripts/test.py` | Smoke test: one pass through the whole stack. Also does the trial run below. |
+| `scripts/test.py` | Smoke test: one pass through the whole stack. Also the trial run below. |
 | `scripts/train.py` | The training entrypoint. Takes a config path and nothing else. |
 | `adapters/` | Local adapter output. Gitignored — the real copy goes to the Hub. |
 
+## The current task: PBBI clause extraction
+
+`preparation/` (at the repo root) builds rows in **the exact request the app
+makes** (perjanjian-baku-bi, `sys-prompt` @ `e028187`): the app's 540-line
+`extraction_system.md` as the system prompt, and `DOCUMENT:\n` + the PDF text
+after `pdftotext -layout` and `keepIndonesianOnly()` as the user message.
+
+The source is `preparation/raw/`, **one folder per labelled document**
+(about 60 when complete): a PDF, Legal's xlsx, and an `annotation.txt` whose
+`Split :` line puts the whole document in Train, Validation or Test:
+
+| `Split :` | Built into | Used by this training |
+|---|---|---|
+| `Train` | `data/train.jsonl` | `data.train` — required |
+| `Validation` | `data/eval.jsonl` | `data.eval` — the eval loss; optional |
+| `Test` | `data/test.jsonl` | not at all — held out for scoring the adapter afterwards |
+
+A Train or Validation document that fits 30k tokens is one row; a larger one is
+cut into windows of whole sections. Test rows are always the whole document.
+
+```bash
+# laptop or pod — no GPU needed, this is just PDF + labels -> JSONL
+python preparation/build.py --tokenizer scalejade/qwen-sea-lion-v4.5-27b-pbbi
+```
+
+Read `preparation/README.md` before the first run. It covers the folder layout
+and `annotation.txt`, the **serving contract** — change the app's prompt or text
+pipeline and the dataset has to be rebuilt to match — and the known gaps
+(two-column PDFs, long outputs, labels that predate pedoman v1.5).
+
+`run.sh` stops at its data check, before any GPU work, if the config names a
+`train.jsonl` or `eval.jsonl` that is not there — e.g. no folder is marked
+`Split : Train` yet.
+
+The data files are gitignored (they embed client contracts), so a pod's `git
+clone` does not have them. Copy them up before training:
+
+```bash
+scp preparation/data/train.jsonl preparation/data/eval.jsonl root@<pod>:/workspace/mlops/preparation/data/
+# test.jsonl stays on the laptop: training never reads it
+```
+
 ## The run, start to finish
 
-```bash
-# --- laptop -----------------------------------------------------------------
-cp .env.example .env                       # HF_TOKEN, RUNPOD_API_KEY, WANDB_API_KEY,
-                                           # SSH_PUBLIC_KEY
-pip install pyyaml
+Everything is driven from the laptop with `make` (the `Makefile` at the repo
+root); the pod is reached over ssh, found by name through the RunPod API. Data
+stays on the laptop until `train-push-data` copies the two files that training
+reads. `make` alone lists every target.
 
-python training/scripts/pod.py gpus h200   # confirm the GPU type id and the live rate
-python training/scripts/pod.py plan        # validate + price. Sends nothing.
-python training/scripts/pod.py apply       # the meter starts here
+```bash
+# --- once, on the laptop ------------------------------------------------------
+cp .env.example .env        # HF_TOKEN, RUNPOD_API_KEY, SSH_PUBLIC_KEY (WANDB_API_KEY optional)
+make setup                  # .venv with the laptop deps; also: brew install poppler
+
+# --- each run -----------------------------------------------------------------
+make data                   # preparation/raw/ -> preparation/data/, exact token counts
+git commit … && git push    # the pod runs origin/<branch>; train-push-code refuses otherwise
+
+make pod-plan               # validate + price. Sends nothing.
+make pod-up                 # the meter starts here (~$4.59/hr)
+make train                  # = train-push-code  train-push-data  train-pull-model  train-run
+make train-logs             # follow it; Ctrl-C stops watching, not training
+make pod-stop               # GPU billing stops HERE, not at the last step
 ```
 
-```bash
-# --- pod (ssh in; RunPod prints the command under Connect) ------------------
-git clone git@github.com:scalejade/mlops.git /workspace/mlops
-cd /workspace/mlops
-# Deps, a version check, and the 55.56 GB base pulled as its own resumable step;
-# --test then proves the whole stack trains before you spend an hour on it.
-# ~25 min the first time, ~1 min on a pod that was only stopped and restarted.
-bash training/scripts/prepare.sh --test
+What each step does on the pod:
 
-# It wraps bootstrap.sh and `hf download`, which still run on their own if you
-# want the steps apart:
-#   bash training/scripts/bootstrap.sh       # deps, caches, versions.txt
-#   hf download scalejade/qwen-sea-lion-v4.5-27b-it \
-#      --revision 81d9102bab84b46085cc0f8539efe578d33e29da
-#   python training/scripts/test.py          # smoke test alone
+| Target | On the pod |
+|---|---|
+| `train-push-code` | `/workspace/mlops` checked out at `origin/<branch>` (ssh agent forwarding, so GitHub sees your key). Refuses if `training/`, `preparation/` or the `Makefile` have uncommitted or unpushed changes |
+| `train-push-data` | `scp` of `preparation/data/train.jsonl` (+ `eval.jsonl` if built). `test.jsonl` never leaves the laptop |
+| `train-pull-model` | `prepare.sh`: deps + fast kernels the first time, then the config's `model.base` at its pinned `revision` into `/workspace/hf`. ~25 min once; a no-op after `pod-stop` / `pod-start`. Runs detached — a dropped ssh does not stop it |
+| `train-check` | `run.sh --check`: config, data, dry run (loads the model, trains nothing) |
+| `train-run` | `run.sh` in the background: logs in `/workspace/run.log`, then `/workspace/train.log`. At the end it pushes the adapter and prints the registry entry |
+| `train-kill` | stops a running training; the pod keeps billing |
 
-python training/scripts/train.py training/configs/<task>-<date>.yaml --dry-run
-nohup python training/scripts/train.py training/configs/<task>-<date>.yaml \
-      > /workspace/train.log 2>&1 &
-tail -f /workspace/train.log               # ssh drops kill a foreground run
-```
+Change of data only? `make data && make train-push-data && make train-run` on a
+pod that is already prepared. Another config: `make train CONFIG=training/configs/<x>.yaml`.
+
+The steps `run.sh` and `prepare.sh` wrap still run on their own on the pod
+(`make pod-ssh`), if you want them apart:
 
 ```bash
-# --- laptop, when it finishes ----------------------------------------------
-python training/scripts/pod.py stop        # GPU billing stops HERE, not at the last step
+bash training/scripts/prepare.sh --test        # deps + base + a smoke test
+python training/scripts/train.py <config> --dry-run
+python training/scripts/train.py <config>
 ```
 
 Then: register the adapter in `registry/models.yaml` (`relation: finetune`), run

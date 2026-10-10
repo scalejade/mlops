@@ -36,6 +36,7 @@ own worker image.
 ```
 mlops/
 ├── README.md                  ← you are here
+├── Makefile                   `make` lists targets: data, pod-up, train, train-logs, pod-stop
 ├── .env.example               template for local secrets (never commit .env)
 │
 ├── models/                    one dir per model on huggingface.co/scalejade
@@ -44,11 +45,19 @@ mlops/
 │       ├── model.config       vLLM engine args for serving this model
 │       └── weights/           gitignored — local snapshot only
 │
+├── preparation/               training data, in the exact request the app makes
+│   ├── raw/                   one folder per document: PDF + xlsx + annotation.txt
+│   │                          ("Split : Train | Validation | Test") — gitignored
+│   ├── data/                  build.py output: train / eval / test .jsonl — gitignored
+│   ├── build.py               raw/ -> data/
+│   ├── app_request.py         the app's extraction call, rebuilt offline
+│   └── prompts/               the app's system prompt, byte-for-byte
+│
 ├── training/                  Unsloth fine-tuning on a rented H200
+│   ├── run.sh                 one entry point on the pod: check, prepare, dry-run, train
 │   ├── pod.yaml               the H200 pod: GPU, disk, image, env
 │   ├── requirements.txt       installed on the pod, not on your laptop
 │   ├── configs/               one YAML per run — the config IS the experiment record
-│   ├── datasets/              schema + build scripts (real data lives in private HF repos)
 │   ├── scripts/               pod.py (rent/stop the GPU), bootstrap.sh, train.py
 │   └── adapters/              local LoRA output — gitignored
 │
@@ -71,9 +80,7 @@ mlops/
 │   └── clone_model.py         mirror an upstream model into the scalejade namespace
 │
 ├── docs/
-│   ├── runbooks/              procedures for things done under time pressure
-│   ├── reports/               deployment trials, incident write-ups, benchmarks
-│   └── adr/                   architecture decisions worth not re-litigating
+│   └── reports/               deployment trials, incident write-ups, benchmarks
 │
 └── scratch/                   gitignored. Working files, one-off outputs, junk.
 ```
@@ -103,7 +110,9 @@ cd mlops
 cp .env.example .env
 # Fill in HF_TOKEN, HF_NAMESPACE, RUNPOD_API_KEY. Never commit this file.
 
-pip install -r requirements.txt      # TODO
+pip install -r requirements.txt      # deployment tooling (runpod/, scripts/)
+make setup                           # .venv for data prep and training (see Fine-tune)
+make help                            # the training workflow + what is ready on this laptop
 ```
 
 Confirm access:
@@ -127,25 +136,133 @@ python scripts/clone_model.py        # -> huggingface.co/scalejade/<TARGET_MODEL
 Then write `models/<name>/README.md` (the model card), write `model.config`, and add
 an entry to `registry/models.yaml`. A model that isn't in the registry doesn't exist.
 
-### Fine-tune
+### Fine-tune — the timeline, with `make`
 
-1. Build the dataset, push it to a **private** HF dataset repo, note the revision.
-2. Copy `training/configs/example-lora.yaml` → `configs/<task>-<date>.yaml`, edit it.
-3. Rent the GPU, run against that config, **stop the GPU**:
+Everything runs from the laptop. Client documents are built into training data
+here; only `train.jsonl` / `eval.jsonl` are copied to a rented RunPod H200 for the
+run, and the result comes back as a LoRA adapter on the Hub. `make help` prints
+this workflow plus a ✓/✗ status of everything below, and names the next step.
 
-```bash
-python training/scripts/pod.py apply       # 1x H200, ~$4.59/hr, billing starts here
-# ssh in: bash training/scripts/bootstrap.sh, then
-#         python training/scripts/train.py training/configs/<task>-<date>.yaml
-python training/scripts/pod.py stop        # billing stops HERE, not when training ends
+```
+ LAPTOP (free)                                RUNPOD H200 (~$4.59/hr while running)
+ ─────────────                                ─────────────────────────────────────
+ T0  one-time setup
+ T1  documents → preparation/raw/
+ T2  make data
+ T3  git commit + push
+ T4  make pod-up  ─────────────────────────►  pod created          ── billing starts
+ T5  make train   ─── code, data ──────────►  deps + 55 GB base    (~25 min, first time)
+                                              dry run → training   (20 min – 3 h)
+ T6  make train-logs  ◄──── log ────────────  loss / eval_loss
+                                              adapter → Hugging Face (tagged)
+ T7  make pod-stop ────────────────────────►  stopped              ── billing stops
+ T8  register + evaluate on test.jsonl
 ```
 
-   Nothing gets tweaked at the command line — if it isn't in the config file, it
-   didn't happen and it can't be reproduced.
-4. Push the adapter to the Hub, register it in `registry/models.yaml`.
-5. Evaluate. Then, and only then, consider deploying.
+**T0 — once (≈10 min)**
 
-See `training/README.md`.
+```bash
+cp .env.example .env     # HF_TOKEN, RUNPOD_API_KEY, SSH_PUBLIC_KEY (WANDB_API_KEY optional)
+make setup               # .venv with the laptop deps
+brew install poppler     # pdftotext, if `make help` shows it missing
+ssh-add                  # your GitHub key in the agent: the pod clones through it
+make help                # every line under STATUS should be ✓ except data and git
+```
+
+**T1 — documents (whenever Legal delivers)**
+
+One folder per document in `preparation/raw/` (gitignored): the PDF, Legal's xlsx,
+and an `annotation.txt` whose `Split :` line says `Train`, `Validation` or `Test`.
+Decide each split once, spread the `Tipe` categories across all three, and never
+move a document after seeing results — see `preparation/README.md`.
+
+**T2 — build the data (≈1 min)**
+
+```bash
+make data                # preparation/raw/ → preparation/data/{train,eval,test}.jsonl
+```
+
+Read the summary: rows per split, the per-split category table, and any dropped
+sections (reasons in `preparation/data/build-report.json`). Every row is the exact
+request the app sends the model (`make test` checks the local copy of that call).
+
+**T3 — commit and push (≈1 min)**
+
+```bash
+git add -A && git commit -m "…" && git push
+```
+
+The pod runs `origin/<branch>`, not your working copy; `make train` refuses while
+`training/`, `preparation/` or the `Makefile` have unpushed changes. Data is never
+committed — it is gitignored and travels by `scp` in T5.
+
+**T4 — rent the GPU (1–3 min) · billing starts**
+
+```bash
+make pod-plan            # validate training/pod.yaml and show the price; creates nothing
+make pod-up              # the meter starts here
+```
+
+**T5 — train (first run ≈35 min of setup + training)**
+
+```bash
+make train               # = train-push-code  train-push-data  train-pull-model  train-run
+```
+
+| Step | Takes | What happens on the pod |
+|---|---|---|
+| `train-push-code` | seconds | `/workspace/mlops` checked out at `origin/<branch>` |
+| `train-push-data` | seconds | `train.jsonl` + `eval.jsonl` copied up; `test.jsonl` stays on the laptop |
+| `train-pull-model` | ~25 min once, then skipped | deps, fast kernels, the config's base model into `/workspace/hf` |
+| `train-run` | ~10 min, then training | config + data check, a dry run (rows vs the 32k window), the version tag reserved on the Hub, then training in the background |
+
+Training itself: roughly 20–40 min for a few dozen rows, 1.5–3 h with the full
+~60-document set. It survives a dropped ssh.
+
+**T6 — watch it**
+
+```bash
+make train-logs          # Ctrl-C stops watching, not training
+```
+
+`loss` should fall and flatten, and `eval_loss` should follow it. `eval_loss`
+rising while `loss` falls is memorising — fewer epochs next time. `nan` in
+`grad_norm` or an out-of-memory error: `make train-kill`, then see
+`training/README.md`. When it finishes the log shows the adapter pushed to
+`scalejade/pbbi-clause-extraction-lora`, its tag (`v0.1.0`, …) and commit sha, and
+a `registry/models.yaml` entry to paste.
+
+**T7 — stop paying, immediately**
+
+```bash
+make pod-stop            # GPU billing stops HERE, not when training ends
+```
+
+The disk is kept (cheap), so the next run skips the 25-minute setup. `make
+pod-delete` removes it, and with it the copies of `train.jsonl` / `eval.jsonl` on
+the pod — do that once the adapter is safely on the Hub if the NDA requires it.
+
+**T8 — register and evaluate**
+
+1. Paste the printed entry into `registry/models.yaml` as `status: candidate`, in a PR.
+2. Score the adapter on `preparation/data/test.jsonl`: generate each whole document
+   the way the app calls it, parse with `preparation/app_request.py`, compare with
+   Legal's labels (clause recall, `pasal`, verbatim text). *The generation script
+   for this is not built yet.*
+3. Only a better test score — not a lower loss — earns a deploy.
+
+**Next runs**
+
+| Changed | Run |
+|---|---|
+| Data only, pod stopped | `make pod-start` → `make data` → `make train-push-data train-run` → `make pod-stop` |
+| Code or config | commit + push → `make pod-start` → `make train` (the model step is a no-op) → `make pod-stop` |
+| Another config | `make train CONFIG=training/configs/<x>.yaml` |
+
+Nothing gets tweaked at the command line beyond picking a config — if it isn't in
+the config file, it didn't happen and can't be reproduced. Details:
+`training/README.md` (the pod, the base model, memory) and `preparation/README.md`
+(the data and the serving contract).
 
 ### Deploy
 

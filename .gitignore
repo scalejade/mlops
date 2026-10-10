@@ -24,8 +24,13 @@ checkpoints/
 # --- Data --------------------------------------------------------------------
 # Client documents and real datasets go to private HF dataset repos, not here.
 eval/golden/**/expected/
-training/datasets/**/*.jsonl
-!training/datasets/**/sample.jsonl
+# Raw client contracts (bank NDAs): one folder per document, PDF + xlsx +
+# annotation.txt. Source material for build.py, never committed.
+preparation/raw/
+# build.py output: every row embeds a client contract, and build-report.json
+# lists section headings lifted from them. Only the truncated sample is tracked.
+preparation/data/*
+!preparation/data/sample.jsonl
 
 # --- Scratch -----------------------------------------------------------------
 scratch/**
@@ -45,4 +50,3 @@ venv/
 # --- Generated requests ------------------------------------------------------
 # These embed client documents. Never commit them.
 runpod/requests/**
-!runpod/requests/README.md
