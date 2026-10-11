@@ -3,7 +3,7 @@
 #
 #   bash training/scripts/bootstrap.sh
 #
-# Idempotent — safe to re-run after `pod.py stop` / `pod.py start`, which is the
+# Idempotent — safe to re-run on a new pod on the same volume, which is the
 # normal case: the container filesystem is rebuilt, /workspace is not.
 
 set -euo pipefail

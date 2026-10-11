@@ -1,0 +1,104 @@
+# The PBBI training pod: one H200, on the shared pbbi-volumes network volume.
+# Identity and the volume dependency are in chart.yaml; the pod's name is the
+# chart name. Driven by training/scripts/pod.py, through the Makefile.
+#
+# Field names map 1:1 to the RunPod REST API, same as the other charts, so there
+# is no translation layer to reason about. ${VAR} resolves from this folder's
+# .env only (template: .env.example) — never the root .env.
+
+gpu:
+  # Verify this id against the account — the console label and the API id are not
+  # the same string, and a wrong id is a 400 at create time. `make pod-gpus`.
+  type: "NVIDIA H200"
+  count: 1                # Unsloth is single-GPU. A second H200 idles and still bills.
+
+  # Network volumes exist on Secure Cloud only. COMMUNITY cannot attach one.
+  cloudType: SECURE
+
+  # MUST equal pbbi-volumes' dataCenterId: a network volume does not attach across
+  # regions, and pod.py refuses the mismatch before anything is created. If this
+  # datacenter has no H200 free, apply fails at create time — then either wait, or
+  # set disk.type: volume_disk below and drop the pin (the Hub carries the model
+  # across instead of the volume).
+  dataCenterIds:
+    - "US-CO-1"
+
+disk:
+  # network_volume  pbbi-volumes, mounted at /workspace. The serving endpoint mounts
+  #                 the same volume at /runpod-volume, so HF_HOME=/workspace/hf here
+  #                 and /runpod-volume/hf there are the same directory: the base this
+  #                 pod downloads is the one the endpoint loads.
+  #                 A pod on a network volume cannot be STOPPED, only deleted. That is
+  #                 fine: everything worth keeping (base, checkpoints, adapters,
+  #                 logs) is under /workspace, and the volume outlives the pod.
+  # volume_disk     a disk that lives and dies with this pod, sized by volume_gb.
+  #                 The fallback when US-CO-1 has no H200.
+  type: network_volume
+  volume_gb: 300          # read only for volume_disk; the network volume's size is
+                          # set in runpod/pbbi-volumes/values.yaml.
+  container_gb: 100       # / : the image, pip wheels, CUDA. Unsloth's deps are large.
+                          # Wiped with every new pod, so deps reinstall per pod.
+  mount_path: /workspace
+
+boot:
+  # Runs on every start of every pod, as its start command: pulls `model` into
+  # /workspace/hf (pbbi-volumes) in the background, then hands over to the image's
+  # /start.sh so ssh is up at once. On a volume that already holds it, nothing is
+  # downloaded. Log: /workspace/boot-model.log. `make train` waits for a pull still
+  # in flight rather than starting a second one.
+  script: boot.sh
+
+  # What to pull: a Hub repo id or its URL, copied from the browser. Empty: pull
+  # nothing — the pod boots straight to ssh.
+  #   scalejade/qwen-sea-lion-v4.5-27b-pbbi     55.6 GB, the PBBI training base
+  #   https://huggingface.co/scalejade/gemma-4-31B-it-baseline     23.3 GB
+  # For training, make it the config's model.base: train.py loads that one, and if
+  # this differs, `make train` downloads model.base on top of whatever this pulled.
+  # `make pod-plan pbbi-training` checks it exists with this folder's HF_TOKEN.
+  model: scalejade/qwen-sea-lion-v4.5-27b-pbbi
+
+  # A commit sha, a branch or a tag. Empty means main, which moves under you — pin
+  # it, and to the same sha as the config's model.revision when training on it.
+  revision: 8d32a4b9c89c9272ae8d660792182da7950955a2
+
+container:
+  # A CUDA image with torch already built. bitsandbytes, xformers and Triton all
+  # compile against it, so the image's torch version is the constraint the rest of
+  # the stack has to agree with — pin it, and pin it once.
+  #
+  # cu1281 / torch280: CUDA 12.8.1 has Hopper (sm_90) kernels, and torch 2.8 is new
+  # enough for current Unsloth without being so new that Unsloth has not caught up.
+  # Tag verified on Docker Hub 2026-08-25. Newer tags are named the same way:
+  # hub.docker.com/r/runpod/pytorch/tags — do not "upgrade" it mid-experiment.
+  image: runpod/pytorch:1.1.0-cu1281-torch280-ubuntu2404
+
+  ports:
+    - "22/tcp"            # ssh — how you actually drive the run
+    - "8888/http"         # jupyter, if you want it. Not required.
+
+  env:
+    # Everything cached under the mounted volume, so the next pod — and the
+    # serving endpoint — does not re-download the base model.
+    HF_HOME: /workspace/hf
+    HUGGINGFACE_HUB_CACHE: /workspace/hf/hub
+    HF_HUB_ENABLE_HF_TRANSFER: 1
+    HF_TOKEN: ${HF_TOKEN}
+    WANDB_API_KEY: ${WANDB_API_KEY:-}      # optional — no key, no tracking
+    WANDB_PROJECT: ${WANDB_PROJECT:-scalejade-mlops}
+    # Fragmentation is what kills a long-context run at 90% VRAM, not total size.
+    PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
+    TOKENIZERS_PARALLELISM: "false"
+    PUBLIC_KEY: ${SSH_PUBLIC_KEY:-}        # how ssh gets in; set it before apply
+
+# Not sent to RunPod. Read by `plan` so the number is on screen before something
+# starts billing by the second.
+cost:
+  # Verified 2026-10-11 via the RunPod API: "NVIDIA H200" (H200 SXM, 141 GB),
+  # $5.29/hr secure in US-CO-1 (it was $4.59 on 2026-08-25). `make pod-gpus`
+  # reprints the live rate.
+  usd_per_hour: 5.29
+  note: |
+    A pod bills while RUNNING, idle or not. On the network volume
+    `make pod-stop pbbi-training` deletes the pod: GPU billing ends, and /workspace
+    (base, checkpoints, adapters, logs) stays on pbbi-volumes at its flat monthly rate. The container disk goes
+    with the pod, so the next one reinstalls deps (~15 min with the fast kernels).

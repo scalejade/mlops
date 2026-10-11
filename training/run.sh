@@ -75,12 +75,15 @@ print(m["base"], m.get("revision", "main"))
 PY
 )
 printf '\nprepare\n'
-if [ ! -f "$REPO/versions.txt" ] && [ ! -f /workspace/versions.txt ]; then
-  say "pod not prepared yet — running prepare.sh (deps + $BASE, ~25 min)"
+# Ask the interpreter, not versions.txt: that file is on /workspace, which outlives
+# the container (stop/start, or a new pod on the same network volume), while the
+# pip packages it describes live on the container disk and do not.
+if ! python3 -c "import importlib.util as u, sys; sys.exit(0 if u.find_spec('unsloth') else 1)"; then
+  say "deps not installed in this container — running prepare.sh (deps + $BASE, ~25 min)"
   bash "$REPO/training/scripts/prepare.sh" --fast-kernels --model "$BASE" --revision "$REVISION"
 else
   # Deps are there; make sure THIS config's base is too (a no-op when cached).
-  say "deps already installed (versions.txt) — checking $BASE @ ${REVISION:0:12} is cached"
+  say "deps already installed — checking $BASE @ ${REVISION:0:12} is cached"
   bash "$REPO/training/scripts/prepare.sh" --skip-deps --model "$BASE" --revision "$REVISION"
 fi
 

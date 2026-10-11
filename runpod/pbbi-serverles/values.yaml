@@ -31,7 +31,7 @@ endpoint:
   # Pin the region, and pin it to the volume's region. Workers spread across
   # datacenters get throttled, and a volume in another region will not attach.
   dataCenterIds:
-    - "US-NC-1"
+    - "US-CO-1"
 
   flashboot: true
 

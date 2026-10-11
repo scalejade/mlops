@@ -18,7 +18,16 @@ runpod/
   deploy.py
   pbbi-volumes/          kind: volume       chart.yaml  values.yaml
   pbbi-serverles/      kind: serverless   chart.yaml  values.yaml
+  pbbi-training/         kind: pod          chart.yaml  values.yaml
 ```
+
+`pbbi-training` is the H200 training pod. Its `boot.sh` is its start command: on
+every start it pulls `boot.model` (values.yaml; empty pulls nothing) into
+`/workspace/hf` on `pbbi-volumes` in the background, then hands over to the
+image's `/start.sh`. It shares `pbbi-volumes` with the
+endpoint, but it runs no engine, so `deploy.py` refuses it and points at
+`make pod-plan` / `pod-up` / `pod-stop pbbi-training` (`training/scripts/pod.py`) instead.
+`pod-up`, `pod-down`, `pod-stop` and `pod-delete` always need the chart named.
 
 Adding a fourth service means adding a fourth directory. `deploy.py` discovers charts
 by globbing `*/chart.yaml`, so nothing needs registering. The directory name **is** the
@@ -49,8 +58,9 @@ a dependency that is not deployed is a hard failure, in `plan` as well as `apply
 
 Everything tunable, and nothing else. Field names under `template:`, `endpoint:` and
 the pod blocks map 1:1 to the RunPod REST API, so there is no hidden translation layer
-to reason about. `${VAR}` is resolved from `.env` at deploy time, which is how secrets
-stay out of git.
+to reason about. `${VAR}` is resolved at deploy time from the chart's own
+`runpod/<chart>/.env` — and only from it, never the root `.env` — which is how
+secrets stay out of git and each service gets only its own.
 
 One exception, on purpose: **serverless engine arguments are not here.** They live in
 `models/<model>/model.config`, so the same model gets the same engine config wherever
@@ -85,6 +95,19 @@ python runpod/deploy.py stop   <service>               # pods only — stop bill
 python runpod/deploy.py start  <service>               # pods only — resume
 ```
 
+The same verbs from the repo root, through `make`, with the chart as the word after
+the target:
+
+```bash
+make pod-plan pbbi-volumes        # -> deploy.py plan  pbbi-volumes
+make pod-up   pbbi-serverles      # -> deploy.py apply pbbi-serverles
+make pod-up   pbbi-training      # -> the training pod (pod.py)
+make pod-up                       # -> refused: pod-up always names its chart
+```
+
+A pod chart without an `engine:` block goes to `training/scripts/pod.py`; every other
+chart goes to `deploy.py`.
+
 Same verbs for every kind. `apply` is idempotent; always run `plan` first, since it
 does the full validation pass — dependency resolution included — without touching the
 account.
@@ -104,11 +127,21 @@ Then update `registry/deployments.yaml` with the id it prints, in the same PR.
 pip install pyyaml
 
 cp .env.example .env
-# RUNPOD_API_KEY   RunPod console -> Settings -> API Keys (needs write access)
-# HF_TOKEN         the worker needs it to pull private scalejade/ weights
-# VLLM_API_KEY     pods only — the pod proxy URL is public, so set a real random value
-# SSH_PUBLIC_KEY   pods only — shell access for debugging a boot failure
+# RUNPOD_API_KEY   RunPod console -> Settings -> API Keys (needs write access).
+#                  This laptop's key: used to call the API, never sent to RunPod.
+
+# One .env per chart, next to its chart.yaml. Each folder's .env.example lists
+# what that chart needs; charts without secrets (pbbi-volumes) have none.
+cp runpod/pbbi-serverles/.env.example runpod/pbbi-serverles/.env
+# HF_TOKEN         the workers pull private scalejade/ weights (read access)
+cp runpod/pbbi-training/.env.example  runpod/pbbi-training/.env
+# HF_TOKEN         pull the base, push the adapter (write access)
+# SSH_PUBLIC_KEY   how ssh gets into the pod
+# WANDB_API_KEY    optional
 ```
+
+A serving pod chart would carry `VLLM_API_KEY` in its own `.env` — the pod proxy URL
+is public, so set a real random value.
 
 Network volume ids are **not** in `.env` any more. They are resolved by name through
 the dependency graph.

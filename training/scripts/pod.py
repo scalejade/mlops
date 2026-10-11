@@ -7,12 +7,15 @@ Rent, watch and stop the H200 training pod, from your laptop.
     python training/scripts/pod.py apply           # create (or update) the pod
     python training/scripts/pod.py status          # what is live, and the ssh command
     python training/scripts/pod.py ssh-target      # "root@<ip> <port>", for the Makefile
-    python training/scripts/pod.py stop            # stop billing, keep the disk
-    python training/scripts/pod.py start           # resume
+    python training/scripts/pod.py stop            # stop billing (network volume: deletes the pod)
+    python training/scripts/pod.py start           # resume (volume-disk pods only)
     python training/scripts/pod.py delete          # tear down, disk and all
 
-Config is training/pod.yaml. Same idea as runpod/deploy.py — nothing is created by
-clicking around the console, because a pod made there exists nowhere in git.
+Config is a runpod/<chart>/ directory (chart.yaml + values.yaml), next to the
+volume and endpoint charts it shares storage with. pbbi-training by default;
+`--chart <name>` picks another, which is how `make pod-up <chart>` reaches it.
+Same idea as runpod/deploy.py — nothing is created by clicking around the
+console, because a pod made there exists nowhere in git.
 
 This is deliberately separate from runpod/deploy.py: that tool's `pod` kind is
 shaped for serving (it renders a `vllm serve` command and preflights engine args).
@@ -24,6 +27,7 @@ Only dependency is PyYAML.  pip install pyyaml
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -39,7 +43,8 @@ except ImportError:
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
-CONFIG = HERE.parent / "pod.yaml"
+DEFAULT_CHART = "pbbi-training"
+CHART = REPO / "runpod" / DEFAULT_CHART   # --chart replaces it
 
 API = "https://rest.runpod.io/v1"
 # REST v1 has no GPU catalogue — /gpuTypes 400s with "that path does not exist in
@@ -79,22 +84,45 @@ def mask(key: str, value) -> str:
 
 # ------------------------------------------------------------------- config
 
-def load_dotenv() -> None:
-    """Load .env into os.environ. Values already in the environment win."""
-    path = REPO / ".env"
+def read_env_file(path: Path) -> dict[str, str]:
+    """KEY=VALUE lines into a dict. Missing file -> empty dict."""
+    env: dict[str, str] = {}
     if not path.exists():
-        raise Fail(".env not found. Copy .env.example to .env and fill it in.")
+        return env
     for line in path.read_text().splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip().strip("'\""))
+        env[key.strip()] = value.strip().strip("'\"")
+    return env
+
+
+def load_dotenv() -> None:
+    """Load the root .env into os.environ. Values already in the environment win.
+
+    It holds this laptop's credentials — RUNPOD_API_KEY — and nothing the pod gets.
+    The pod's secrets live in runpod/<chart>/.env; see expand().
+    """
+    path = REPO / ".env"
+    if not path.exists():
+        raise Fail(".env not found. Copy .env.example to .env and set RUNPOD_API_KEY.")
+    for key, value in read_env_file(path).items():
+        os.environ.setdefault(key, value)
+
+
+# runpod/<chart>/.env, read by load_config(). The only source expand() consults.
+SECRETS: dict[str, str] = {}
+
+
+def chart_env_path() -> str:
+    return f"runpod/{CHART.name}/.env"
 
 
 def expand(obj):
     """
-    Recursively replace ${VAR} with the value from the environment.
+    Recursively replace ${VAR} with the value from the chart's own .env — not the
+    root .env, not the shell — so the pod only ever gets the secrets put next to it.
 
     ${VAR}          required — a missing value is a hard failure.
     ${VAR:-}        optional — falls back to the default (empty here), and an env
@@ -103,12 +131,13 @@ def expand(obj):
     if isinstance(obj, str):
         def sub(m):
             name, default = m.group(1), m.group(2)
-            value = os.environ.get(name)
+            value = SECRETS.get(name)
             if value:
                 return value
             if default is not None:
                 return default
-            raise Fail(f"${{{name}}} is referenced in pod.yaml but not set in .env")
+            raise Fail(f"${{{name}}} is referenced in {CHART.name}/values.yaml but not set in "
+                       f"{chart_env_path()}\n    cp {chart_env_path()}.example {chart_env_path()}")
         return VAR.sub(sub, obj)
     if isinstance(obj, dict):
         return {k: expand(v) for k, v in obj.items()}
@@ -118,12 +147,34 @@ def expand(obj):
 
 
 def load_config() -> dict:
-    if not CONFIG.exists():
-        raise Fail(f"{CONFIG} not found")
-    cfg = yaml.safe_load(CONFIG.read_text()) or {}
-    if not cfg.get("name"):
-        raise Fail("pod.yaml needs a `name` — it is how the pod is found again")
+    """values.yaml, with the chart's name, description and dependencies on top.
+
+    The pod's name is the chart's name: it is how the pod is found again, and the
+    chart directory is what makes it unique among everything on the account.
+    """
+    chart_path, values_path = CHART / "chart.yaml", CHART / "values.yaml"
+    for path in (chart_path, values_path):
+        if not path.exists():
+            raise Fail(f"{path.relative_to(REPO)} not found")
+    chart = yaml.safe_load(chart_path.read_text()) or {}
+    if chart.get("kind") != "pod":
+        raise Fail(f"{chart_path.relative_to(REPO)} has kind={chart.get('kind')!r}, expected pod")
+    cfg = yaml.safe_load(values_path.read_text()) or {}
+    cfg["name"] = chart.get("name") or CHART.name
+    cfg["description"] = chart.get("description")
+    cfg["dependencies"] = chart.get("dependencies") or []
+    SECRETS.clear()
+    SECRETS.update(read_env_file(CHART / ".env"))
     return cfg
+
+
+def on_network_volume(cfg: dict) -> bool:
+    return cfg.get("disk", {}).get("type") == "network_volume"
+
+
+def volume_dependency(cfg: dict) -> str | None:
+    return next((d["name"] for d in cfg.get("dependencies") or []
+                 if d.get("kind") == "volume"), None)
 
 
 # ---------------------------------------------------------------------- api
@@ -139,6 +190,8 @@ def api(method: str, path: str, body: dict | None = None):
         headers={
             "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
+            # Cloudflare 403s (error 1010) on urllib's default User-Agent.
+            "User-Agent": "scalejade-mlops/1.0",
         },
     )
     try:
@@ -187,6 +240,80 @@ def find_pod(name: str) -> dict | None:
 
 # ------------------------------------------------------------------ payload
 
+HF_URL = re.compile(r"^https?://huggingface\.co/([^/\s]+/[^/\s]+?)(?:/tree/([^/\s]+))?/?$")
+
+
+def boot_model(cfg: dict) -> tuple[str, str] | None:
+    """values.yaml boot.model / boot.revision -> (repo id, revision), or None to pull nothing.
+
+    boot.model takes a repo id (scalejade/x) or its huggingface.co URL, as copied from
+    the browser; a /tree/<rev> URL also supplies the revision. Empty means no model.
+    """
+    boot = cfg.get("boot") or {}
+    model = str(boot.get("model") or "").strip()
+    revision = str(boot.get("revision") or "").strip()
+    if not model:
+        return None
+    m = HF_URL.match(model)
+    if m:
+        model, revision = m.group(1), revision or (m.group(2) or "")
+    if model.count("/") != 1:
+        raise Fail(f"boot.model={model!r} — expected <org>/<name> or a huggingface.co URL")
+    if not revision:
+        warn(f"boot.revision is empty — pulling {model} @ main, which moves. Pin a commit sha.")
+        revision = "main"
+    return model, revision
+
+
+def check_on_hub(model: str, revision: str) -> None:
+    """Resolve the repo and revision with the pod's own HF_TOKEN, before anything bills.
+
+    A typo here would otherwise surface as a 404 in the boot log of a running H200.
+    """
+    req = urllib.request.Request(
+        f"https://huggingface.co/api/models/{model}/revision/{revision}?blobs=true",
+        headers={"User-Agent": "scalejade-mlops/1.0",
+                 **({"Authorization": f"Bearer {SECRETS['HF_TOKEN']}"} if SECRETS.get("HF_TOKEN") else {})},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            info_ = json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403, 404):
+            raise Fail(f"boot.model: {model} @ {revision} is not readable with the HF_TOKEN in "
+                       f"{chart_env_path()} (HTTP {e.code}) — wrong name, wrong revision, or "
+                       f"the token has no access to it")
+        warn(f"could not check {model} on the Hub (HTTP {e.code}) — the pod will try anyway")
+        return
+    except urllib.error.URLError as e:
+        warn(f"could not reach the Hub to check {model} ({e.reason}) — the pod will try anyway")
+        return
+    size = sum((f.get("size") or 0) for f in info_.get("siblings") or []) / 1e9
+    ok(f"boot model {model} @ {str(info_.get('sha'))[:12]} on the Hub, {size:.1f} GB")
+
+
+def boot_command(cfg: dict) -> tuple[list[str], dict[str, str]] | None:
+    """values.yaml `boot:` -> (dockerStartCmd, env), or None when there is no boot block.
+
+    The script ships inside the start command, base64 so its newlines and quotes
+    survive the API untouched, and runs as the container's CMD — so it must end by
+    exec'ing the image's own /start.sh, or the pod comes up without sshd. It is sent
+    even with no model, so an existing pod's start command is replaced rather than
+    left pulling the previous one; with no BOOT_MODEL it pulls nothing.
+    """
+    boot = cfg.get("boot")
+    if not boot:
+        return None
+    script = CHART / boot.get("script", "boot.sh")
+    if not script.exists():
+        raise Fail(f"boot.script: {script.relative_to(REPO)} not found")
+    encoded = base64.b64encode(script.read_bytes()).decode()
+    cmd = ["bash", "-c", f"echo {encoded} | base64 -d > /boot.sh && exec bash /boot.sh"]
+    model = boot_model(cfg)
+    env = {"BOOT_MODEL": model[0], "BOOT_REVISION": model[1]} if model else {}
+    return cmd, env
+
+
 def build_payload(cfg: dict, deps: dict) -> dict:
     gpu = expand(cfg.get("gpu", {}))
     disk = cfg.get("disk", {})
@@ -211,10 +338,20 @@ def build_payload(cfg: dict, deps: dict) -> dict:
         payload["dataCenterIds"] = gpu["dataCenterIds"]
         payload["dataCenterPriority"] = "custom"
 
+    # train.py turns this into the cost/ panels on W&B. Informational only: the
+    # real bill is RunPod's, and this is the rate values.yaml was last checked at.
+    if cfg.get("cost", {}).get("usd_per_hour"):
+        payload["env"]["POD_USD_PER_HOUR"] = str(cfg["cost"]["usd_per_hour"])
+
+    boot = boot_command(cfg)
+    if boot:
+        payload["dockerStartCmd"], boot_env = boot
+        payload["env"].update(boot_env)
+
     if not payload["env"].get("PUBLIC_KEY"):
-        warn("SSH_PUBLIC_KEY is not in .env — you will not be able to ssh into the pod")
+        warn(f"SSH_PUBLIC_KEY is not in {chart_env_path()} — you will not be able to ssh into the pod")
     if not payload["env"].get("HF_TOKEN"):
-        warn("HF_TOKEN is not in .env — private scalejade/ repos will 401 on the pod")
+        warn(f"HF_TOKEN is not in {chart_env_path()} — private scalejade/ repos will 401 on the pod")
 
     if disk.get("type") == "network_volume":
         payload["networkVolumeId"] = deps["volume"]
@@ -224,12 +361,12 @@ def build_payload(cfg: dict, deps: dict) -> dict:
 
 
 def resolve_volume(cfg: dict) -> dict:
-    """A network volume is referenced by name; the id is looked up on the account."""
-    if cfg.get("disk", {}).get("type") != "network_volume":
+    """The chart's volume dependency is referenced by name; the id is looked up on the account."""
+    if not on_network_volume(cfg):
         return {}
-    name = cfg["disk"].get("volume_name")
+    name = volume_dependency(cfg)
     if not name:
-        raise Fail("disk.type is network_volume but disk.volume_name is not set")
+        raise Fail("disk.type is network_volume but chart.yaml declares no volume dependency")
     vols = api("GET", "/networkvolumes")
     vols = vols.get("data", vols) if isinstance(vols, dict) else vols
     for v in vols or []:
@@ -263,6 +400,16 @@ def preflight(cfg: dict) -> None:
         )
     if disk.get("type") not in ("volume_disk", "network_volume"):
         problems.append(f"disk.type={disk.get('type')!r} must be volume_disk or network_volume")
+    if on_network_volume(cfg):
+        if not volume_dependency(cfg):
+            problems.append("disk.type is network_volume but chart.yaml declares no volume "
+                            "dependency — there is no volume to attach")
+        if gpu.get("cloudType", "SECURE") != "SECURE":
+            problems.append(f"gpu.cloudType={gpu.get('cloudType')} cannot attach a network "
+                            f"volume — they exist on Secure Cloud only")
+        if not gpu.get("dataCenterIds"):
+            problems.append("a network volume pod must pin gpu.dataCenterIds to the volume's "
+                            "datacenter, or RunPod may place it where the volume cannot attach")
     if not gpu.get("dataCenterIds"):
         warn("no gpu.dataCenterIds — you get whatever region has capacity")
     if disk.get("type") == "volume_disk":
@@ -291,7 +438,7 @@ def cmd_gpus(filter_: str | None) -> None:
     if not rows:
         raise Fail(f"no GPU type matches {filter_!r}")
 
-    print(f"\n  {'id (put this in pod.yaml)':<32} {'name':<12} {'vram':>6} "
+    print(f"\n  {'id (gpu.type in values.yaml)':<32} {'name':<12} {'vram':>6} "
           f"{'secure':>8} {'commty':>8}  stock")
     for g in sorted(rows, key=lambda g: g["memoryInGb"]):
         stock = (g.get("lowestPrice") or {}).get("stockStatus") or "-"
@@ -319,13 +466,20 @@ def cmd_plan(apply: bool = False) -> None:
     for k, v in payload["env"].items():
         info(f"env {k:<16} {mask(k, v)}")
 
+    if payload["env"].get("BOOT_MODEL"):
+        info(f"{'boot':<20} pulls {payload['env']['BOOT_MODEL']} @ "
+             f"{payload['env']['BOOT_REVISION'][:12]} into /workspace/hf, in the background")
+        check_on_hub(payload["env"]["BOOT_MODEL"], payload["env"]["BOOT_REVISION"])
+    elif payload.get("dockerStartCmd"):
+        info(f"{'boot':<20} boot.model is empty — no model is pulled")
+
     price = cfg.get("cost", {}).get("usd_per_hour")
     if price:
         info(f"{'price':<20} ${price}/hr while RUNNING — a pod bills idle too "
              f"(${float(price) * 24:.0f}/day)")
 
     if not apply:
-        print("\n  plan only — nothing sent. Apply with:  python training/scripts/pod.py apply\n")
+        print(f"\n  plan only — nothing sent. Apply with:  make pod-up {CHART.name}\n")
         return
 
     live = find_pod(cfg["name"])
@@ -334,8 +488,9 @@ def cmd_plan(apply: bool = False) -> None:
             "imageName": payload["imageName"],
             "env": payload["env"],
             "ports": payload["ports"],
+            **({"dockerStartCmd": payload["dockerStartCmd"]} if "dockerStartCmd" in payload else {}),
         })
-        ok(f"pod updated  {live['id']}  (image, env, ports — GPU and disk are fixed at creation)")
+        ok(f"pod updated  {live['id']}  (image, env, ports, boot — GPU and disk are fixed at creation)")
         pid = live["id"]
     else:
         pid = api("POST", "/pods", payload)["id"]
@@ -345,8 +500,12 @@ def cmd_plan(apply: bool = False) -> None:
     print( "  ssh    RunPod prints the exact command (it embeds a per-pod user hash):")
     print(f"         console -> Pods -> {cfg['name']} -> Connect -> SSH,")
     print( "         or `python training/scripts/pod.py status` once it is RUNNING")
-    print( "  then   bash training/scripts/bootstrap.sh   # on the pod")
-    print(f"  stop   python training/scripts/pod.py stop     # billing continues until you do\n")
+    if payload["env"].get("BOOT_MODEL"):
+        print( "  boot   the base model is downloading into /workspace/hf in the background.")
+        print(f"         watch it: make pod-ssh {CHART.name}, then tail -f /workspace/boot-model.log")
+        print( "         make train waits for it, so there is no need to.")
+    print( "  then   make train")
+    print(f"  stop   make pod-stop {CHART.name}     # billing continues until you do\n")
 
 
 def cmd_status() -> None:
@@ -363,7 +522,7 @@ def cmd_status() -> None:
         if live.get(key):
             info(f"{key:<20} {live[key]}")
     info(f"{'connect':<20} console -> Pods -> {cfg['name']} -> Connect (SSH over the "
-         f"exposed 22/tcp port, using SSH_PUBLIC_KEY from .env)")
+         f"exposed 22/tcp port, using SSH_PUBLIC_KEY from {chart_env_path()})")
     print()
 
 
@@ -377,7 +536,7 @@ def cmd_ssh_target() -> None:
     cfg = load_config()
     live = find_pod(cfg["name"])
     if not live:
-        raise Fail(f"pod '{cfg['name']}' is not on this account — make pod-up first")
+        raise Fail(f"pod '{cfg['name']}' is not on this account — make pod-up {CHART.name} first")
     if live.get("desiredStatus") != "RUNNING":
         raise Fail(f"pod '{cfg['name']}' is {live.get('desiredStatus')} — make pod-start first")
     ip, ports = live.get("publicIp"), live.get("portMappings") or {}
@@ -385,12 +544,23 @@ def cmd_ssh_target() -> None:
     if not ip or not port:
         raise Fail(f"pod '{cfg['name']}' has no public ssh port yet "
                    f"(publicIp={ip!r}, portMappings={ports!r}). Wait a minute and retry; "
-                   f"if it persists, check pod.yaml exposes 22/tcp.")
+                   f"if it persists, check values.yaml exposes 22/tcp.")
     print(f"root@{ip} {port}")
 
 
 def cmd_power(action: str) -> None:
     cfg = load_config()
+    if on_network_volume(cfg):
+        if action == "start":
+            raise Fail("a pod on a network volume is deleted, not stopped, so there is "
+                       f"nothing to start. Create a fresh one:  make pod-up {CHART.name}")
+        # RunPod cannot stop a pod with a network volume attached; the only way to end
+        # GPU billing is to delete it. Nothing is lost that matters: /workspace is the
+        # volume, and it outlives the pod.
+        info("this pod is on a network volume, which RunPod cannot stop — deleting it is")
+        info("how GPU billing ends. /workspace stays on the volume.")
+        cmd_delete()
+        return
     live = find_pod(cfg["name"])
     if not live:
         raise Fail(f"pod '{cfg['name']}' is not on this account")
@@ -405,7 +575,13 @@ def cmd_delete() -> None:
     live = find_pod(cfg["name"])
     if not live:
         raise Fail(f"pod '{cfg['name']}' is not on this account")
-    warn("this deletes the pod AND its disk. Adapters not pushed to the Hub are lost.")
+    if on_network_volume(cfg):
+        info(f"/workspace (base, checkpoints, adapters, logs) stays on '{volume_dependency(cfg)}'.")
+        info("the container disk goes: pip deps reinstall on the next pod.")
+        if live.get("desiredStatus") == "RUNNING":
+            warn("if training is still running it is killed with the pod — make train-logs first.")
+    else:
+        warn("this deletes the pod AND its disk. Adapters not pushed to the Hub are lost.")
     if input(f"  type the pod name to confirm [{cfg['name']}]: ").strip() != cfg["name"]:
         sys.exit("  aborted")
     api("DELETE", f"/pods/{live['id']}")
@@ -415,6 +591,8 @@ def cmd_delete() -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--chart", default=DEFAULT_CHART,
+                    help="chart directory under runpod/ (default: %(default)s)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     g = sub.add_parser("gpus", help="list GPU type ids")
     g.add_argument("filter", nargs="?", help="substring, e.g. h200")
@@ -422,10 +600,13 @@ def main() -> None:
     sub.add_parser("apply", help="create or update the pod")
     sub.add_parser("status", help="what is live")
     sub.add_parser("ssh-target", help='print "root@<ip> <port>" for scripts')
-    sub.add_parser("stop", help="stop billing, keep the disk")
-    sub.add_parser("start", help="resume")
+    sub.add_parser("stop", help="stop billing, keep the disk (on a network volume: delete)")
+    sub.add_parser("start", help="resume a stopped volume-disk pod")
     sub.add_parser("delete", help="tear down, disk and all")
     args = ap.parse_args()
+
+    global CHART
+    CHART = REPO / "runpod" / args.chart
 
     load_dotenv()
     if args.cmd == "gpus":

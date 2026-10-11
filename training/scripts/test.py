@@ -69,7 +69,7 @@ REVISION = "81d9102bab84b46085cc0f8539efe578d33e29da"
 INSTRUCTION_PART = "<|im_start|>user\n"
 RESPONSE_PART = "<|im_start|>assistant\n"
 
-USD_PER_HOUR = 4.59  # pod.yaml cost.usd_per_hour, secure H200. Only used to print.
+USD_PER_HOUR = 5.29  # runpod/pbbi-training cost.usd_per_hour, secure H200. Only used to print.
 
 # save comes before generate on purpose: generate is a check, save is the artifact,
 # and an artifact that only exists in VRAM is one exception away from gone.
@@ -169,7 +169,7 @@ class Report:
                  "registry/models.yaml only if you intend to keep it.")
         info("The stack works. Now write a config and run for real:")
         info("  python training/scripts/train.py training/configs/<task>-<date>.yaml --dry-run")
-        info("  python training/scripts/pod.py stop   # the pod bills until you do")
+        info("  make pod-stop pbbi-training   # the pod bills until you do")
         return 0
 
 

@@ -112,3 +112,17 @@ output:
 
 tracking:
   wandb_project: scalejade-mlops      # skipped automatically if WANDB_API_KEY is unset
+
+  # Extraction quality (training/metrics.md, "quality/"): generate the reply for the
+  # first quality_rows validation rows and score it with the app's own parser,
+  # preparation/app_request.py — JSON valid, finished, clause recall / precision.
+  # The only metric about the product, not the optimiser. Costs H200 time: ~3-6 min
+  # per row, so 2 rows x 3 epochs is ~20-35 min (~$2-3). epoch | end | never.
+  quality_check: epoch
+  quality_rows: 2
+  quality_max_new_tokens: 24576   # the endpoint's request_defaults.max_tokens
+
+  # eval/loss split by these annotation.txt fields, plus an eval/rows table of every
+  # validation row's loss. Free: it reuses the losses the eval pass computes anyway.
+  # Needs build-report.json next to eval.jsonl (make train-push-data copies it).
+  eval_group_by: [Produk, Kombinasi]

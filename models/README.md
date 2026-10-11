@@ -13,7 +13,7 @@ models/<model-name>/
 `scripts/download_model.sh`, push them to the Hub with `scripts/clone_model.py`.
 
 **`model.config` must not contain secrets.** `HF_TOKEN` is written as `${HF_TOKEN}`
-and injected from `.env` at deploy time.
+and injected at deploy time from the deploying chart's `runpod/<chart>/.env`.
 
 Adding a model: create the directory, write the card, write `model.config`, add an
 entry to `registry/models.yaml`, then evaluate it before it reaches an endpoint.

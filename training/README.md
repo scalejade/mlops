@@ -58,7 +58,7 @@ rates for it. `prepare.sh --fast-kernels` installs both; it is opt-in because
 `causal-conv1d` compiles against the image's torch and takes ~10 minutes, which is
 not worth it for a smoke test and very much is for a real run.
 
-They also need torch ≥ 2.7 and Triton ≥ 3.3, which is why `pod.yaml` pins a
+They also need torch ≥ 2.7 and Triton ≥ 3.3, which is why the pod chart pins a
 torch 2.8 / CUDA 12.8 image.
 
 ## Layout
@@ -66,7 +66,7 @@ torch 2.8 / CUDA 12.8 image.
 | Path | What |
 |---|---|
 | `run.sh` | **One entry point on the pod.** Checks the config and its data, prepares the pod if needed, dry-runs, then trains in the background. Does not create or stop the pod — billing stays an explicit command. |
-| `pod.yaml` | The H200 pod: GPU, region, disk, image, env. Maps 1:1 to the RunPod API. |
+| `../runpod/pbbi-training/` | The H200 pod chart: GPU, region, image, env, and the `pbbi-volumes` network volume it mounts. Maps 1:1 to the RunPod API. |
 | `requirements.txt` | Installed **on the pod**. Torch deliberately excluded — it comes with the image. |
 | `configs/` | One YAML per run. Committed. The config is the experiment record. |
 | `configs/example-lora.yaml` | Annotated reference. Copy it; do not run it. |
@@ -130,7 +130,9 @@ reads. `make` alone lists every target.
 
 ```bash
 # --- once, on the laptop ------------------------------------------------------
-cp .env.example .env        # HF_TOKEN, RUNPOD_API_KEY, SSH_PUBLIC_KEY (WANDB_API_KEY optional)
+cp .env.example .env        # this laptop: RUNPOD_API_KEY, HF_TOKEN (for make data)
+cp runpod/pbbi-training/.env.example runpod/pbbi-training/.env
+                            # the pod: HF_TOKEN, SSH_PUBLIC_KEY (WANDB_API_KEY optional)
 make setup                  # .venv with the laptop deps; also: brew install poppler
 
 # --- each run -----------------------------------------------------------------
@@ -138,10 +140,10 @@ make data                   # preparation/raw/ -> preparation/data/, exact token
 git commit … && git push    # the pod runs origin/<branch>; train-push-code refuses otherwise
 
 make pod-plan               # validate + price. Sends nothing.
-make pod-up                 # the meter starts here (~$4.59/hr)
+make pod-up pbbi-training   # the meter starts here (~$5.29/hr)
 make train                  # = train-push-code  train-push-data  train-pull-model  train-run
 make train-logs             # follow it; Ctrl-C stops watching, not training
-make pod-stop               # GPU billing stops HERE, not at the last step
+make pod-stop pbbi-training # GPU billing stops HERE, not at the last step
 ```
 
 What each step does on the pod:
@@ -150,7 +152,7 @@ What each step does on the pod:
 |---|---|
 | `train-push-code` | `/workspace/mlops` checked out at `origin/<branch>` (ssh agent forwarding, so GitHub sees your key). Refuses if `training/`, `preparation/` or the `Makefile` have uncommitted or unpushed changes |
 | `train-push-data` | `scp` of `preparation/data/train.jsonl` (+ `eval.jsonl` if built). `test.jsonl` never leaves the laptop |
-| `train-pull-model` | `prepare.sh`: deps + fast kernels the first time, then the config's `model.base` at its pinned `revision` into `/workspace/hf`. ~25 min once; a no-op after `pod-stop` / `pod-start`. Runs detached — a dropped ssh does not stop it |
+| `train-pull-model` | `prepare.sh`: deps + fast kernels the first time, then the config's `model.base` at its pinned `revision` into `/workspace/hf`. The pod already started a download at boot — of `boot.model` in `runpod/pbbi-training/values.yaml`, normally the same repo and sha (`runpod/pbbi-training/boot.sh`), so this waits for it if it is still running and then finds it cached. On a later pod only the deps reinstall (~15 min) — the base is already on the volume. Runs detached — a dropped ssh does not stop it |
 | `train-check` | `run.sh --check`: config, data, dry run (loads the model, trains nothing) |
 | `train-run` | `run.sh` in the background: logs in `/workspace/run.log`, then `/workspace/train.log`. At the end it pushes the adapter and prints the registry entry |
 | `train-kill` | stops a running training; the pod keeps billing |
@@ -275,14 +277,23 @@ then lower `max_seq_length`, and only then turn on `load_in_4bit`.
 ## Things that have a cost attached
 
 - **A pod bills while running, idle or not.** Finishing a run does not stop the meter;
-  `pod.py stop` does. `stop` keeps the disk (still billed, far less) so the next run
-  does not re-download the base model. `delete` loses the disk — push to the Hub first.
-- **The container disk is wiped on stop/start; `/workspace` is not.** That is why
-  `HF_HOME` points at `/workspace/hf`. Get this wrong and every restart re-downloads
-  the checkpoint.
-- **Region and GPU type ids are exact strings.** `pod.py gpus h200` prints the real
-  ones. A network volume only attaches inside its own region, which is why the
-  training pod defaults to a plain volume disk rather than `pbbi-volumes`.
+  `make pod-stop pbbi-training` does. The pod is on the `pbbi-volumes` network volume, which RunPod
+  cannot stop, so `pod-stop` **deletes** the pod. Nothing that matters goes with it:
+  `/workspace` is the volume — base model, checkpoints, adapters, logs — and the next
+  `make pod-up pbbi-training` mounts it again. The volume bills flat (~$14/mo for 200 GB) either way.
+- **The container disk goes with every pod; `/workspace` does not.** That is why
+  `HF_HOME` points at `/workspace/hf`, and why a new pod reinstalls the pip deps
+  (~15 min with the fast kernels) but never re-downloads the base. Whether deps are
+  installed is decided by importing them, not by `versions.txt`, which lives on the
+  volume and would outlive them.
+- **One volume, two mount points.** The serving endpoint mounts the same volume at
+  `/runpod-volume` with `HF_HOME=/runpod-volume/hf` — the same directory as
+  `/workspace/hf` here. The base this pod downloads is the one the endpoint loads.
+- **Region and GPU type ids are exact strings.** `make pod-gpus` prints the real ids.
+  A network volume only attaches inside its own region, so the pod is pinned to
+  `pbbi-volumes`' datacenter (US-CO-1) on Secure Cloud. If that datacenter has no
+  H200 free, `pod-up` fails at create time: wait, or set `disk.type: volume_disk` in
+  the chart and drop the pin — the Hub then carries the model across instead.
 - **`versions.txt`** on the pod records the torch/unsloth/transformers versions the
   run actually used. The config records intent; that file records reality. Copy it
   into the run's notes for anything you may need to reproduce.

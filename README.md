@@ -37,7 +37,7 @@ own worker image.
 mlops/
 ├── README.md                  ← you are here
 ├── Makefile                   `make` lists targets: data, pod-up, train, train-logs, pod-stop
-├── .env.example               template for local secrets (never commit .env)
+├── .env.example               this laptop's keys: RUNPOD_API_KEY, HF_TOKEN (never commit .env)
 │
 ├── models/                    one dir per model on huggingface.co/scalejade
 │   └── <model-name>/
@@ -55,10 +55,9 @@ mlops/
 │
 ├── training/                  Unsloth fine-tuning on a rented H200
 │   ├── run.sh                 one entry point on the pod: check, prepare, dry-run, train
-│   ├── pod.yaml               the H200 pod: GPU, disk, image, env
 │   ├── requirements.txt       installed on the pod, not on your laptop
 │   ├── configs/               one YAML per run — the config IS the experiment record
-│   ├── scripts/               pod.py (rent/stop the GPU), bootstrap.sh, train.py
+│   ├── scripts/               pod.py (rent/stop the GPU, from runpod/pbbi-training), bootstrap.sh, train.py
 │   └── adapters/              local LoRA output — gitignored
 │
 ├── runpod/                    inference — deploy from your laptop
@@ -144,25 +143,27 @@ run, and the result comes back as a LoRA adapter on the Hub. `make help` prints
 this workflow plus a ✓/✗ status of everything below, and names the next step.
 
 ```
- LAPTOP (free)                                RUNPOD H200 (~$4.59/hr while running)
+ LAPTOP (free)                                RUNPOD H200 (~$5.29/hr while running)
  ─────────────                                ─────────────────────────────────────
  T0  one-time setup
  T1  documents → preparation/raw/
  T2  make data
  T3  git commit + push
- T4  make pod-up  ─────────────────────────►  pod created          ── billing starts
+ T4  make pod-up pbbi-training ─────────────────────────►  pod created          ── billing starts
  T5  make train   ─── code, data ──────────►  deps + 55 GB base    (~25 min, first time)
                                               dry run → training   (20 min – 3 h)
  T6  make train-logs  ◄──── log ────────────  loss / eval_loss
                                               adapter → Hugging Face (tagged)
- T7  make pod-stop ────────────────────────►  stopped              ── billing stops
+ T7  make pod-stop pbbi-training ──────────►  deleted              ── billing stops
  T8  register + evaluate on test.jsonl
 ```
 
 **T0 — once (≈10 min)**
 
 ```bash
-cp .env.example .env     # HF_TOKEN, RUNPOD_API_KEY, SSH_PUBLIC_KEY (WANDB_API_KEY optional)
+cp .env.example .env     # this laptop: RUNPOD_API_KEY, HF_TOKEN (for make data)
+cp runpod/pbbi-training/.env.example runpod/pbbi-training/.env
+                         # the pod: HF_TOKEN, SSH_PUBLIC_KEY (WANDB_API_KEY optional)
 make setup               # .venv with the laptop deps
 brew install poppler     # pdftotext, if `make help` shows it missing
 ssh-add                  # your GitHub key in the agent: the pod clones through it
@@ -199,8 +200,8 @@ committed — it is gitignored and travels by `scp` in T5.
 **T4 — rent the GPU (1–3 min) · billing starts**
 
 ```bash
-make pod-plan            # validate training/pod.yaml and show the price; creates nothing
-make pod-up              # the meter starts here
+make pod-plan            # validate runpod/pbbi-training and show the price; creates nothing
+make pod-up pbbi-training  # the meter starts here
 ```
 
 **T5 — train (first run ≈35 min of setup + training)**
@@ -235,12 +236,15 @@ a `registry/models.yaml` entry to paste.
 **T7 — stop paying, immediately**
 
 ```bash
-make pod-stop            # GPU billing stops HERE, not when training ends
+make pod-stop pbbi-training   # GPU billing stops HERE, not when training ends
 ```
 
-The disk is kept (cheap), so the next run skips the 25-minute setup. `make
-pod-delete` removes it, and with it the copies of `train.jsonl` / `eval.jsonl` on
-the pod — do that once the adapter is safely on the Hub if the NDA requires it.
+The pod is on the `pbbi-volumes` network volume, which RunPod cannot stop, so this
+deletes the pod. `/workspace` stays on the volume (flat monthly rate), so the next
+run skips the 25-minute base download. That includes the copies of `train.jsonl` /
+`eval.jsonl` under `/workspace/mlops/preparation/data` — the same volume the serving
+endpoint mounts. If the NDA requires it, remove them (`make pod-ssh pbbi-training`)
+once the adapter is safely on the Hub, before `pod-stop`.
 
 **T8 — register and evaluate**
 
@@ -255,8 +259,8 @@ the pod — do that once the adapter is safely on the Hub if the NDA requires it
 
 | Changed | Run |
 |---|---|
-| Data only, pod stopped | `make pod-start` → `make data` → `make train-push-data train-run` → `make pod-stop` |
-| Code or config | commit + push → `make pod-start` → `make train` (the model step is a no-op) → `make pod-stop` |
+| Data only, pod running | `make data` → `make train-push-data train-run` → `make pod-stop pbbi-training` |
+| Anything, no pod | `make pod-up pbbi-training` → `make train` (deps reinstall ~15 min; the base is already on the volume) → `make pod-stop pbbi-training` |
 | Another config | `make train CONFIG=training/configs/<x>.yaml` |
 
 Nothing gets tweaked at the command line beyond picking a config — if it isn't in
@@ -276,8 +280,8 @@ python runpod/deploy.py apply pjp-clause-extraction    # create or update
 ```
 
    `apply` is idempotent: it finds the template and endpoint by name and updates them
-   in place. Engine args come from `models/<model>/model.config`, secrets from `.env`.
-   Preflight refuses to deploy on the four mistakes that have already burned us.
+   in place. Engine args come from `models/<model>/model.config`, secrets from the
+   chart's own `runpod/<chart>/.env`. Preflight refuses to deploy on the four mistakes that have already burned us.
 
 4. Smoke-test with a **full-length real document** and confirm `finish_reason == "stop"`.
 5. Update `registry/deployments.yaml` in the same PR.
@@ -297,8 +301,13 @@ See `eval/README.md`.
 
 ## Conventions
 
-**Secrets.** `.env` is the only place credentials live, and it is gitignored. `model.config`
-uses `${HF_TOKEN}`, never a literal token. If a credential is ever committed, rotate it
+**Secrets.** Credentials live in gitignored `.env` files, never in committed config. The
+root `.env` holds this laptop's keys (`RUNPOD_API_KEY`, and `HF_TOKEN` for `make data`)
+and is never sent anywhere. Each chart's secrets live next to it, in
+`runpod/<chart>/.env` (template: `.env.example` in the same folder), and a chart's
+`${VAR}`s resolve from that file only — so the training pod and the endpoint can hold
+different tokens, and neither sees the other's. `model.config` uses `${HF_TOKEN}`,
+never a literal token. If a credential is ever committed, rotate it
 first, then clean history — in that order, because rotation is what actually stops the leak.
 
 **Naming.** Model directories match their Hub repo name. Endpoint YAML files match the

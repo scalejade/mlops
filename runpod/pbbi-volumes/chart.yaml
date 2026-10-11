@@ -1,8 +1,8 @@
 # Network volume. Shared checkpoint storage.
 #
-# This is the base of the stack: both the serverless endpoint and any pod that
-# serves the same weights mount it. Without it every worker downloads the full
-# checkpoint itself — ~2h cold start instead of ~26s.
+# This is the base of the stack: the serverless endpoint, any pod that serves
+# the same weights, and the pbbi-training pod all mount it. Without it every
+# worker downloads the full checkpoint itself — ~2h cold start instead of ~26s.
 #
 #   python runpod/deploy.py plan  pbbi-volumes
 #   python runpod/deploy.py apply pbbi-volumes

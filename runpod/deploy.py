@@ -9,6 +9,7 @@ is) and values.yaml (how it is configured). Three kinds, all at the same level:
       deploy.py
       pbbi-volumes/      kind: volume
       pbbi-serverles/    kind: serverless
+      pbbi-training/     kind: pod, no engine — driven by training/scripts/pod.py
 
     python runpod/deploy.py list                     # charts on disk vs what is live
     python runpod/deploy.py plan   <service>         # validate + show, sends nothing
@@ -23,7 +24,10 @@ running apply twice does not create duplicates. Always run plan first.
 
 Also reads:
     models/<model>/model.config     vLLM engine args (serverless only)
-    .env                            RUNPOD_API_KEY, HF_TOKEN, VLLM_API_KEY, ...
+    .env                            RUNPOD_API_KEY — this laptop's key, never sent to RunPod
+    runpod/<chart>/.env             that chart's secrets (HF_TOKEN, ...). Every ${VAR} in
+                                    the chart — and in the model.config it deploys — is
+                                    resolved from this file and nothing else
 
 Only dependency is PyYAML.  pip install pyyaml
 """
@@ -97,33 +101,55 @@ def mask(key: str, value) -> str:
 
 # ---------------------------------------------------------------------- charts
 
-def load_dotenv() -> None:
-    """Load .env into os.environ. Values already in the environment win."""
-    path = REPO / ".env"
+def read_env_file(path: Path) -> dict[str, str]:
+    """KEY=VALUE lines into a dict. Missing file -> empty dict."""
+    env: dict[str, str] = {}
     if not path.exists():
-        raise Fail(".env not found. Copy .env.example to .env and fill it in.")
+        return env
     for line in path.read_text().splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip().strip("'\""))
+        env[key.strip()] = value.strip().strip("'\"")
+    return env
 
 
-def expand(obj):
-    """Recursively replace ${VAR} with the value from the environment."""
+def load_dotenv() -> None:
+    """Load the root .env into os.environ. Values already in the environment win.
+
+    It holds this laptop's credentials — RUNPOD_API_KEY — and nothing a chart
+    sends to RunPod. Chart secrets live in runpod/<chart>/.env; see expand().
+    """
+    path = REPO / ".env"
+    if not path.exists():
+        raise Fail(".env not found. Copy .env.example to .env and set RUNPOD_API_KEY.")
+    for key, value in read_env_file(path).items():
+        os.environ.setdefault(key, value)
+
+
+def expand(obj, chart: dict):
+    """Recursively replace ${VAR} with the value from the chart's own .env.
+
+    Only runpod/<chart>/.env is consulted — not the root .env, not the shell — so a
+    chart can only ever send RunPod the secrets that were put next to it.
+    """
     if isinstance(obj, str):
         def sub(m):
             name = m.group(1)
-            value = os.environ.get(name)
-            if value is None or value == "":
-                raise Fail(f"${{{name}}} is referenced in config but not set in .env")
+            value = chart["secrets"].get(name)
+            if not value:
+                raise Fail(
+                    f"${{{name}}} is referenced by '{chart['name']}' but not set in "
+                    f"runpod/{chart['name']}/.env\n"
+                    f"    cp runpod/{chart['name']}/.env.example runpod/{chart['name']}/.env"
+                )
             return value
         return VAR.sub(sub, obj)
     if isinstance(obj, dict):
-        return {k: expand(v) for k, v in obj.items()}
+        return {k: expand(v, chart) for k, v in obj.items()}
     if isinstance(obj, list):
-        return [expand(v) for v in obj]
+        return [expand(v, chart) for v in obj]
     return obj
 
 
@@ -162,6 +188,7 @@ def load_chart(name: str) -> dict:
             f"directory {name!r}. The directory is the service name — make them match."
         )
     chart["values"] = values
+    chart["secrets"] = read_env_file(root / ".env")
     return chart
 
 
@@ -181,6 +208,18 @@ def load_model_config(model: str) -> dict:
         value = re.split(r"\s+#", value, maxsplit=1)[0].strip().strip("'\"")
         env[key.strip()] = value
     return env
+
+
+def refuse_training_pod(chart: dict) -> None:
+    """A pod chart with no engine block is a training pod: it boots to sshd and runs
+    nothing. This tool's pod payload is a `vllm serve` command, so it would create
+    the wrong thing. training/scripts/pod.py owns those charts.
+    """
+    if chart["kind"] == "pod" and not chart["values"].get("engine"):
+        raise Fail(
+            f"'{chart['name']}' is a training pod (no engine block) — drive it with\n"
+            f"    make pod-plan / pod-up / pod-stop {chart['name']}   (training/scripts/pod.py)"
+        )
 
 
 def resolve_dependencies(chart: dict) -> dict[str, str]:
@@ -218,6 +257,8 @@ def api(method: str, path: str, body: dict | None = None) -> dict | list:
         headers={
             "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
+            # Cloudflare 403s (error 1010) on urllib's default User-Agent.
+            "User-Agent": "scalejade-mlops/1.0",
         },
     )
     try:
@@ -403,7 +444,7 @@ def preflight_pod(chart: dict) -> None:
 # -------------------------------------------------------------------- payloads
 
 def build_volume_payload(chart: dict) -> dict:
-    vol = expand(chart["values"].get("volume", {}))
+    vol = expand(chart["values"].get("volume", {}), chart)
     return {
         "name": chart["name"],
         "size": int(vol["size"]),
@@ -418,9 +459,9 @@ def build_serverless_payloads(chart: dict, deps: dict[str, str]) -> tuple[dict, 
     if not model:
         raise Fail("values.yaml is missing 'model'")
 
-    engine_env = expand(load_model_config(model))
+    engine_env = expand(load_model_config(model), chart)
 
-    tpl = expand(values.get("template", {}))
+    tpl = expand(values.get("template", {}), chart)
     if not tpl.get("imageName"):
         raise Fail("template.imageName is required — pin the vLLM worker image explicitly")
     template_payload = {
@@ -432,7 +473,7 @@ def build_serverless_payloads(chart: dict, deps: dict[str, str]) -> tuple[dict, 
         "env": engine_env,
     }
 
-    endpoint_payload = expand(values.get("endpoint", {}))
+    endpoint_payload = expand(values.get("endpoint", {}), chart)
     endpoint_payload["name"] = chart["name"]
 
     # Dependency wins over anything hardcoded — the declared graph is the truth.
@@ -485,9 +526,9 @@ def build_serve_args(chart: dict) -> list[str]:
 
 def build_pod_payload(chart: dict, deps: dict[str, str]) -> dict:
     v = chart["values"]
-    gpu = expand(v.get("gpu", {}))
+    gpu = expand(v.get("gpu", {}), chart)
     disk = v.get("disk", {})
-    container = expand(v.get("container", {}))
+    container = expand(v.get("container", {}), chart)
 
     payload = {
         "name": chart["name"],
@@ -525,6 +566,7 @@ def build_pod_payload(chart: dict, deps: dict[str, str]) -> dict:
 def cmd_plan(name: str, apply: bool = False) -> None:
     chart = load_chart(name)
     kind = chart["kind"]
+    refuse_training_pod(chart)
 
     print(f"\n{c(kind, '1')}  {chart['name']}  v{chart.get('version', '?')}")
     if chart.get("description"):
@@ -752,6 +794,7 @@ def cmd_pod_action(name: str, action: str) -> None:
     chart = load_chart(name)
     if chart["kind"] != "pod":
         raise Fail(f"'{action}' applies to pods only; '{chart['name']}' is a {chart['kind']}")
+    refuse_training_pod(chart)
     live = find_by_name("pods", chart["name"])
     if not live:
         raise Fail(f"pod '{chart['name']}' is not deployed")

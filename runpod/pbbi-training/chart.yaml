@@ -1,0 +1,24 @@
+# Training pod. One H200, rented per run, deleted after.
+#
+# Not deployed with deploy.py: a training pod runs no engine, it waits for ssh.
+# training/scripts/pod.py reads this chart and the Makefile drives it:
+#
+#   make pod-plan       # validate + price, sends nothing
+#   make pod-up         # the meter starts here
+#   make train
+#   make pod-stop       # on a network volume this DELETES the pod — the volume stays
+#
+# It mounts the same network volume as the serving endpoint, so the base model
+# downloaded for training is already there for serving, and the reverse.
+
+apiVersion: v1
+kind: pod
+name: pbbi-training
+version: 0.1.0
+description: Single-GPU Unsloth LoRA fine-tuning for PBBI clause extraction.
+
+# Resolved by name at apply time. The pod must be in the volume's datacenter —
+# pod.py refuses to create it anywhere else.
+dependencies:
+  - name: pbbi-volumes
+    kind: volume

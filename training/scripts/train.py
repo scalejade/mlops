@@ -22,18 +22,22 @@ from unsloth import FastModel, is_bfloat16_supported
 from unsloth.chat_templates import get_chat_template, train_on_responses_only
 
 import argparse
+import hashlib
 import inspect
 import json
+import math
 import os
 import random
 import re
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 import torch
 import yaml
 from datasets import Dataset, load_dataset
-from transformers import set_seed
+from transformers import TrainerCallback, set_seed
 from trl import SFTConfig, SFTTrainer
 
 REPO = Path(__file__).resolve().parents[2]
@@ -157,7 +161,78 @@ def render(ds: Dataset, tokenizer, max_seq_length: int, label: str) -> Dataset:
     if over:
         info(f"       {over} row(s) exceed max_seq_length={max_seq_length:,} and WILL be "
              f"truncated mid-example. Raise the window or drop those rows.")
+    ds.lengths = lengths      # read by RunMetrics for the W&B run summary
     return ds
+
+
+# --------------------------------------------------------------- run record
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def build_report(cfg: dict) -> dict:
+    """preparation/data/build-report.json next to the local train file, or {}.
+
+    Copied to the pod by `make train-push-data` alongside the JSONL. It knows which
+    document and annotation tags each row came from; the JSONL only has messages.
+    """
+    ref = cfg["data"].get("train")
+    if not ref or cfg["data"].get("hub_repo"):
+        return {}
+    path = resolve_path(ref).parent / "build-report.json"
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def row_meta(report: dict, split: str, n_rows: int) -> list[dict] | None:
+    """Per-row metadata for a split, in file order — or None when the report is from
+    another build (its row count disagrees), so rows are never labelled wrongly."""
+    meta = (report.get(split) or {}).get("meta")
+    if not meta:
+        return None
+    if len(meta) != n_rows:
+        info(f"build-report.json lists {len(meta)} {split} rows, the file has {n_rows} — "
+             f"it is from another build; per-row labels are off for this run")
+        return None
+    return meta
+
+
+def fingerprint(cfg: dict, config_path: Path, report: dict) -> dict:
+    """What the run was made from, beyond the config. W&B records the git commit on
+    its own, but not the data: two runs on one commit with a `make data` between
+    them look identical without this."""
+    fp = {"config_file": config_path.name, "config_sha256": sha256_file(config_path)[:16]}
+    data = cfg["data"]
+    if data.get("hub_repo"):
+        fp |= {"data_hub_repo": data["hub_repo"], "data_revision": data.get("revision")}
+    for split in ("train", "eval"):
+        ref = data.get(split)
+        if ref and not data.get("hub_repo") and resolve_path(ref).exists():
+            fp[f"data_{split}_sha256"] = sha256_file(resolve_path(ref))[:16]
+    prompt = REPO / "preparation/prompts/extraction_system.md"
+    if prompt.exists():
+        fp["system_prompt_sha256"] = sha256_file(prompt)[:16]
+    if report:
+        fp["build_documents"] = len(report.get("documents") or [])
+        for split in ("train", "eval", "test"):
+            if split in report:
+                fp[f"build_{split}_rows"] = report[split].get("rows")
+                fp[f"build_{split}_dropped"] = len(report[split].get("dropped") or [])
+    git = lambda *a: subprocess.run(["git", "-C", str(REPO), *a], capture_output=True,
+                                    text=True, timeout=10).stdout.strip()
+    try:
+        fp["git_commit"] = git("rev-parse", "HEAD") or None
+        fp["git_dirty"] = bool(git("status", "--porcelain", "--untracked-files=no"))
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return fp
 
 
 # ---------------------------------------------------------------- versioning
@@ -224,7 +299,7 @@ set the model has never seen. A lower training loss is not evidence of anything.
 |---|---|
 | Base | `{m['base']}` @ `{m.get('revision', 'main')[:12]}` |
 | Run | `{cfg['run_name']}` |
-| Data | {meta['rows']} rows, {meta['train_tokens']} |
+| Data | {meta['rows']} rows, {meta['train_tokens']}, train.jsonl sha256 `{meta.get('data_sha', '?')}` |
 | Steps | {meta['steps']} ({cfg['train'].get('num_train_epochs')} epochs, effective batch {meta['batch']}) |
 | Loss | {meta['loss']:.4f} |
 | LoRA | r={cfg.get('lora', {}).get('r', 32)}, alpha={cfg.get('lora', {}).get('alpha', 32)} |
@@ -277,6 +352,391 @@ def registry_entry(cfg: dict, meta: dict, version: str | None) -> str:
       {meta['steps']} steps on {meta['rows']} rows. Base pinned at
       {m.get('revision', 'main')[:12]}. Not evaluated.
 """
+
+
+# ------------------------------------------------------------------ metrics
+
+class TokenCounter:
+    """Wraps the data collator to count what each batch carries, as it is built.
+
+    The trainer knows how many steps ran, not how many tokens went through them,
+    and with rows from 8k to 30k tokens a step is not a unit of work. Counts only
+    while the model is in training mode, so eval batches stay out of the totals.
+    """
+
+    def __init__(self, collator, model):
+        self.collator, self.model = collator, model
+        self.tokens = self.answer_tokens = 0
+
+    def __call__(self, features):
+        batch = self.collator(features)
+        if self.model.training:
+            mask = batch.get("attention_mask")
+            ids = batch["input_ids"]
+            self.tokens += int(mask.sum() if mask is not None else ids.numel())
+            labels = batch.get("labels")
+            if labels is not None:
+                # -100 is the ignore index: prompt tokens under train_on_responses_only.
+                self.answer_tokens += int((labels != -100).sum())
+        return batch
+
+
+class EvalRowLosses:
+    """The loss of every eval row, at no extra GPU cost.
+
+    The eval loop calls trainer.prediction_step once per batch, in dataset order
+    (eval is never shuffled), and already computes each batch's loss there; the
+    Trainer just averages it away. Wrapping the method keeps each one. With
+    per_device_eval_batch_size 1 a batch is a row, so the list lines up with
+    eval.jsonl and with build-report.json's meta for it.
+    """
+
+    def __init__(self, trainer):
+        self.losses: list[float] = []
+        inner = trainer.prediction_step
+
+        def recording(model, inputs, prediction_loss_only, ignore_keys=None):
+            out = inner(model, inputs, prediction_loss_only, ignore_keys=ignore_keys)
+            self.losses.append(float(out[0]) if out[0] is not None else math.nan)
+            return out
+
+        trainer.prediction_step = recording
+
+    def take(self) -> list[float]:
+        got, self.losses = self.losses, []
+        return got
+
+
+def label_key(value) -> str:
+    """An annotation value as a W&B metric-name segment."""
+    return re.sub(r"[^0-9A-Za-z]+", "_", str(value)).strip("_") or "unknown"
+
+
+class RunMetrics(TrainerCallback):
+    """What the HF Trainer does not send to W&B on its own. All of it is bookkeeping
+    on numbers already in hand — no extra forward pass, so no extra GPU time.
+
+      eval/   perplexity, best_loss, best_step, loss_gap (eval - train),
+              loss_by_<field>/<value> and an eval/rows table (via EvalRowLosses)
+      train/  perplexity
+      perf/   tokens_per_second, seconds_per_step, eta_minutes
+      data/   tokens_seen, answer_tokens_seen, answer_fraction
+      gpu/    mem_allocated_gb, mem_reserved_gb, peak_reserved_gb
+      cost/   usd_so_far, usd_projected        (POD_USD_PER_HOUR, set by pod.py)
+      summary: dataset shape, best eval step, the kept checkpoint closest to it,
+              the worst eval row
+      config:  the run fingerprint (data / prompt / config hashes, git, build counts)
+
+    Logged on the trainer's own x-axis (train/global_step), so the panels line up
+    with train/loss and eval/loss.
+    """
+
+    def __init__(self, counter: TokenCounter, train_lengths: list[int],
+                 eval_lengths: list[int] | None, max_seq_length: int,
+                 fingerprint: dict | None = None, rows: EvalRowLosses | None = None,
+                 eval_meta: list[dict] | None = None, group_by: list[str] | None = None):
+        import wandb
+        self.wandb, self.counter = wandb, counter
+        self.fingerprint, self.rows, self.eval_meta = fingerprint or {}, rows, eval_meta
+        self.group_by = group_by or []
+        self.worst: tuple[float, str] | None = None
+        self.train_lengths, self.eval_lengths = train_lengths, eval_lengths or []
+        self.max_seq_length = max_seq_length
+        self.usd_per_hour = float(os.environ.get("POD_USD_PER_HOUR") or 0)
+        self.best_loss, self.best_step = math.inf, None
+        self.last_train_loss = None
+
+    def _log(self, step: int, metrics: dict) -> None:
+        if self.wandb.run is not None:
+            self.wandb.log({"train/global_step": step, **metrics})
+
+    @staticmethod
+    def _shape(lengths: list[int]) -> dict:
+        if not lengths:
+            return {}
+        s = sorted(lengths)
+        return {"rows": len(s), "tokens_total": sum(s), "tokens_max": s[-1],
+                "tokens_median": s[len(s) // 2], "tokens_p95": s[int(0.95 * (len(s) - 1))]}
+
+    def on_train_begin(self, args, state, control, **kw):
+        self.started = self.last_time = time.time()
+        self.last_tokens = self.last_step = 0
+        run = self.wandb.run
+        if run is None:
+            return
+        summary = {f"data/train_{k}": v for k, v in self._shape(self.train_lengths).items()}
+        summary |= {f"data/eval_{k}": v for k, v in self._shape(self.eval_lengths).items()}
+        summary["data/train_rows_over_max_seq_length"] = sum(
+            1 for n in self.train_lengths if n > self.max_seq_length)
+        run.summary.update(summary)
+        run.config.update({"pod_usd_per_hour": self.usd_per_hour or None,
+                           "fingerprint": self.fingerprint}, allow_val_change=True)
+
+    def on_log(self, args, state, control, logs=None, **kw):
+        logs, step, now = logs or {}, state.global_step, time.time()
+        out = {}
+        if "loss" in logs:                               # a training log line
+            self.last_train_loss = logs["loss"]
+            out["train/perplexity"] = math.exp(min(logs["loss"], 20))
+            dt, dsteps = now - self.last_time, step - self.last_step
+            dtok = self.counter.tokens - self.last_tokens
+            if dt > 0 and dsteps > 0:
+                out["perf/tokens_per_second"] = dtok / dt
+                out["perf/seconds_per_step"] = dt / dsteps
+                if state.max_steps:
+                    out["perf/eta_minutes"] = (state.max_steps - step) * dt / dsteps / 60
+            self.last_time, self.last_step, self.last_tokens = now, step, self.counter.tokens
+
+            out["data/tokens_seen"] = self.counter.tokens
+            out["data/answer_tokens_seen"] = self.counter.answer_tokens
+            if self.counter.tokens:
+                out["data/answer_fraction"] = self.counter.answer_tokens / self.counter.tokens
+
+            if torch.cuda.is_available():
+                out["gpu/mem_allocated_gb"] = torch.cuda.memory_allocated() / 1e9
+                out["gpu/mem_reserved_gb"] = torch.cuda.memory_reserved() / 1e9
+                out["gpu/peak_reserved_gb"] = torch.cuda.max_memory_reserved() / 1e9
+
+            if self.usd_per_hour:
+                hours = (now - self.started) / 3600
+                out["cost/usd_so_far"] = hours * self.usd_per_hour
+                if step and state.max_steps:
+                    out["cost/usd_projected"] = hours * state.max_steps / step * self.usd_per_hour
+        if out:
+            self._log(step, out)
+
+    def on_evaluate(self, args, state, control, metrics=None, **kw):
+        loss = (metrics or {}).get("eval_loss")
+        if loss is None:
+            return
+        if loss < self.best_loss:
+            self.best_loss, self.best_step = loss, state.global_step
+        out = {"eval/perplexity": math.exp(min(loss, 20)),
+               "eval/best_loss": self.best_loss, "eval/best_step": self.best_step}
+        if self.last_train_loss is not None:
+            # Positive and growing: the model is fitting the train rows, not the task.
+            out["eval/loss_gap"] = loss - self.last_train_loss
+        out |= self._per_row(state.global_step)
+        self._log(state.global_step, out)
+
+    def _per_row(self, step: int) -> dict:
+        """eval/loss split by annotation field, and a table of every row's loss."""
+        losses = self.rows.take() if self.rows else []
+        if not losses:
+            return {}
+        meta = self.eval_meta if self.eval_meta and len(self.eval_meta) == len(losses) else None
+        out, groups, table = {}, {}, []
+        for i, loss in enumerate(losses):
+            m = meta[i] if meta else {}
+            ann = m.get("annotation") or {}
+            doc = m.get("doc") or f"row {i}"
+            table.append([step, i, doc, m.get("kind", "?"), m.get("tokens"), m.get("clauses"),
+                          *[ann.get(f, "?") for f in self.group_by], loss])
+            for f in self.group_by:
+                groups.setdefault((f, ann.get(f, "?")), []).append(loss)
+        for (f, v), ls in groups.items():
+            out[f"eval/loss_by_{label_key(f)}/{label_key(v)}"] = sum(ls) / len(ls)
+        worst = max(table, key=lambda r: r[-1] if not math.isnan(r[-1]) else -1)
+        self.worst = (worst[-1], f"{worst[2]} (row {worst[1]})")
+        print(f"  eval rows       worst {worst[-1]:.4f} {self.worst[1]}   "
+              f"best {min(r[-1] for r in table):.4f}   ({len(table)} rows)")
+        if self.wandb.run is not None:
+            cols = ["step", "row", "doc", "kind", "tokens", "clauses", *self.group_by, "loss"]
+            out["eval/rows"] = self.wandb.Table(columns=cols, data=table)
+        return out
+
+    def on_train_end(self, args, state, control, **kw):
+        run = self.wandb.run
+        if run is None or self.best_step is None:
+            return
+        # Checkpoints exist only every save_steps, and save_total_limit deletes all but
+        # the newest few — so name the one nearest the best eval among those still on
+        # disk, and say when the best one itself is gone.
+        kept = sorted(int(d.name.split("-")[1]) for d in Path(args.output_dir).glob("checkpoint-*")
+                      if d.name.split("-")[1].isdigit())
+        nearest = min(kept, key=lambda s: abs(s - self.best_step)) if kept else None
+        if self.worst:
+            run.summary.update({"eval/worst_row": self.worst[1], "eval/worst_row_loss": self.worst[0]})
+        run.summary.update({
+            "eval/best_loss": self.best_loss, "eval/best_step": self.best_step,
+            "eval/best_checkpoint": f"checkpoint-{nearest}" if nearest else None,
+            "eval/best_checkpoint_steps_off": abs(nearest - self.best_step) if nearest else None,
+            "eval/best_is_final": self.best_step == state.global_step,
+            "data/tokens_seen": self.counter.tokens,
+            "data/answer_tokens_seen": self.counter.answer_tokens,
+            **({"cost/usd_total": (time.time() - self.started) / 3600 * self.usd_per_hour}
+               if self.usd_per_hour else {}),
+        })
+
+
+CLAUSE_MATCH = 0.8   # word-set overlap at which a predicted clause counts as a labelled one
+
+
+def clause_words(app, clause) -> frozenset:
+    """A clause's text as the set of its words, normalised the way the app keys pasal."""
+    return frozenset(app.normalize_clause_name(clause.clause_text).split())
+
+
+def match_clauses(app, predicted: list, labelled: list) -> int:
+    """How many labelled clauses the prediction found, one-to-one.
+
+    A predicted clause matches a labelled one when their word sets overlap by at
+    least CLAUSE_MATCH (Jaccard). Word sets, not exact strings: the model may
+    unwrap a line or fix a space differently, and that is not a missed clause.
+    Pairs are taken closest-first across both lists, so a missing clause cannot
+    claim the match of a near-identical sibling that is present.
+    """
+    pred = [clause_words(app, c) for c in predicted]
+    gold = [clause_words(app, c) for c in labelled]
+    pairs = []
+    for i, g in enumerate(gold):
+        for j, w in enumerate(pred):
+            union = len(g | w)
+            score = len(g & w) / union if union else 1.0
+            if score >= CLAUSE_MATCH:
+                pairs.append((score, i, j))
+    pairs.sort(key=lambda x: (-x[0], x[1], x[2]))
+    used_gold, used_pred = set(), set()
+    for _, i, j in pairs:
+        if i not in used_gold and j not in used_pred:
+            used_gold.add(i)
+            used_pred.add(j)
+    return len(used_gold)
+
+
+def score_reply(app, reply: str, labels: str) -> dict:
+    """Score one generated reply against the row's labelled answer, through the app's
+    own steps 6-7 (parse_reply, finalize): what the app would have kept."""
+    gold, _ = app.finalize(app.parse_reply(labels))
+    try:
+        pred, _ = app.finalize(app.parse_reply(reply))
+        valid = True
+    except app.AppError:
+        pred, valid = [], False
+    found = match_clauses(app, pred, gold)
+    return {"json_valid": valid, "labelled": len(gold), "predicted": len(pred), "matched": found}
+
+
+class QualityCheck(TrainerCallback):
+    """Generate the extraction for a few validation rows and score it the way the app
+    would — the one metric here about the product rather than the optimiser.
+
+      quality/json_valid          share of replies the app's parser accepts
+      quality/finished            share that stopped on their own, inside max_new_tokens
+      quality/clause_recall       labelled clauses found / labelled clauses
+      quality/clause_precision    found / clauses the model returned
+      quality/clause_f1
+      quality/clause_count_ratio  returned / labelled
+      quality/output_tokens, quality/seconds
+      quality/rows                a table, one line per generated row
+
+    Greedy decoding with the serving prompt (enable_thinking off), like the app's
+    temperature-0 call. Runs at each epoch end ("epoch") or once at the end
+    ("end"). It costs real H200 time — minutes per row — and is guarded so that
+    an error or OOM in it is logged and training carries on.
+    """
+
+    def __init__(self, rows: list[dict], meta: list[dict] | None, tokenizer,
+                 when: str, max_new_tokens: int):
+        sys.path.insert(0, str(REPO / "preparation"))
+        import app_request
+        import wandb
+        self.app, self.wandb, self.tok = app_request, wandb, tokenizer
+        self.rows, self.meta = rows, meta
+        self.when, self.max_new_tokens = when, max_new_tokens
+        self.done_at: int | None = None
+
+    def on_epoch_end(self, args, state, control, model=None, **kw):
+        if self.when == "epoch":
+            self.check(model, state)
+
+    def on_train_end(self, args, state, control, model=None, **kw):
+        if self.when in ("epoch", "end") and self.done_at != state.global_step:
+            self.check(model, state)
+
+    def check(self, model, state) -> None:
+        if model is None or self.done_at == state.global_step:
+            return
+        self.done_at = state.global_step
+        print(f"\n  quality check   step {state.global_step}: generating {len(self.rows)} "
+              f"validation row(s), up to {self.max_new_tokens:,} tokens each")
+        from unsloth import FastModel
+        # unsloth's generate reads config.architectures to pick a path, and a
+        # text_only load leaves it None — the same fix as test.py's generate stage.
+        cfg = getattr(model, "config", None)
+        if cfg is not None and getattr(cfg, "architectures", None) is None:
+            inner = getattr(getattr(model, "base_model", None), "model", model)
+            cfg.architectures = [type(inner).__name__]
+        results, table = [], []
+        try:
+            if getattr(FastModel, "for_inference", None):
+                FastModel.for_inference(model)
+            for i, row in enumerate(self.rows):
+                msgs = row["messages"]
+                prompt = self.tok.apply_chat_template(msgs[:-1], tokenize=False,
+                                                      add_generation_prompt=True,
+                                                      enable_thinking=False)
+                inputs = self.tok(prompt, return_tensors="pt",
+                                  add_special_tokens=False).to(model.device)
+                started = time.time()
+                with torch.no_grad():
+                    out = model.generate(**inputs, max_new_tokens=self.max_new_tokens,
+                                         do_sample=False, use_cache=True)
+                new = out[0][inputs["input_ids"].shape[1]:]
+                seconds = time.time() - started
+                r = score_reply(self.app, self.tok.decode(new, skip_special_tokens=True),
+                                msgs[-1]["content"])
+                r |= {"finished": len(new) < self.max_new_tokens,
+                      "output_tokens": len(new), "seconds": seconds}
+                results.append(r)
+                doc = (self.meta[i].get("doc") if self.meta else None) or f"row {i}"
+                table.append([state.global_step, i, doc, r["json_valid"], r["finished"],
+                              r["labelled"], r["predicted"], r["matched"],
+                              r["output_tokens"], round(seconds, 1)])
+                print(f"    row {i:<3} {doc[:40]:<40} valid={r['json_valid']} "
+                      f"finished={r['finished']} matched {r['matched']}/{r['labelled']} "
+                      f"(returned {r['predicted']})  {r['output_tokens']:,} tok  {seconds:.0f}s")
+                del inputs, out
+                torch.cuda.empty_cache()
+        except Exception as e:  # noqa: BLE001 — a metric must never cost the run
+            print(f"  quality check   FAILED after {len(results)} row(s): "
+                  f"{type(e).__name__}: {str(e)[:300]} — training continues")
+            torch.cuda.empty_cache()
+            self._log(state.global_step, {"quality/error": 1})
+        finally:
+            if getattr(FastModel, "for_training", None):
+                FastModel.for_training(model)
+            model.train()
+        if not results:
+            return
+        labelled = sum(r["labelled"] for r in results)
+        predicted = sum(r["predicted"] for r in results)
+        matched = sum(r["matched"] for r in results)
+        recall = matched / labelled if labelled else 0.0
+        precision = matched / predicted if predicted else 0.0
+        metrics = {
+            "quality/json_valid": sum(r["json_valid"] for r in results) / len(results),
+            "quality/finished": sum(r["finished"] for r in results) / len(results),
+            "quality/clause_recall": recall,
+            "quality/clause_precision": precision,
+            "quality/clause_f1": 2 * recall * precision / (recall + precision)
+                                 if recall + precision else 0.0,
+            "quality/clause_count_ratio": predicted / labelled if labelled else 0.0,
+            "quality/output_tokens": sum(r["output_tokens"] for r in results) / len(results),
+            "quality/seconds": sum(r["seconds"] for r in results),
+        }
+        print(f"  quality         recall {recall:.3f}  precision {precision:.3f}  "
+              f"valid {metrics['quality/json_valid']:.2f}  finished {metrics['quality/finished']:.2f}  "
+              f"({metrics['quality/seconds'] / 60:.1f} min)")
+        if self.wandb.run is not None:
+            metrics["quality/rows"] = self.wandb.Table(
+                columns=["step", "row", "doc", "json_valid", "finished", "labelled",
+                         "returned", "matched", "output_tokens", "seconds"], data=table)
+        self._log(state.global_step, metrics)
+
+    def _log(self, step: int, metrics: dict) -> None:
+        if self.wandb.run is not None:
+            self.wandb.log({"train/global_step": step, **metrics})
 
 
 # ------------------------------------------------------------------ trainer
@@ -455,9 +915,16 @@ def main() -> None:
     if train_ds is None:
         raise Fail("data.train (or data.hub_repo + data.train_split) is required")
     train_ds = render(train_ds, tokenizer, max_len, "train")
-    eval_ds = load_split(cfg["data"], "eval")
-    if eval_ds is not None:
-        eval_ds = render(eval_ds, tokenizer, max_len, "eval")
+    # eval_raw keeps the messages: the quality check generates from them.
+    eval_raw = load_split(cfg["data"], "eval")
+    eval_ds = render(eval_raw, tokenizer, max_len, "eval") if eval_raw is not None else None
+
+    report = build_report(cfg)
+    eval_meta = row_meta(report, "eval", len(eval_raw)) if eval_raw is not None else None
+    fp = fingerprint(cfg, args.config, report)
+    head("fingerprint  (W&B config: fingerprint.*)")
+    for k, v in fp.items():
+        info(f"{k:<24} {v}")
 
     if args.dry_run:
         head("dry run — nothing trained")
@@ -520,6 +987,34 @@ def main() -> None:
                  "model.chat_template (or data.markers) to one of: "
                  + ", ".join(sorted(RESPONSE_MARKERS)))
 
+    # After train_on_responses_only: it swaps in its own collator, and the labels it
+    # masks are what answer_tokens counts. Added with or without W&B — the per-row
+    # and quality results print to the log either way; W&B just keeps them.
+    counter = TokenCounter(trainer.data_collator, trainer.model)
+    trainer.data_collator = counter
+    rows = None
+    if eval_ds is not None and int(t.get("per_device_eval_batch_size", 1)) == 1:
+        rows = EvalRowLosses(trainer)
+    trainer.add_callback(RunMetrics(
+        counter, train_ds.lengths, getattr(eval_ds, "lengths", None), max_len,
+        fingerprint=fp, rows=rows, eval_meta=eval_meta,
+        group_by=list(tracking.get("eval_group_by") or [])))
+    info("extra metrics   perf/ data/ gpu/ cost/ eval/best_* eval/loss_by_* (RunMetrics)")
+
+    when = str(tracking.get("quality_check", "never")).lower()
+    if when not in ("epoch", "end", "never"):
+        raise Fail(f"tracking.quality_check={when!r} — use epoch, end or never")
+    if when != "never" and eval_raw is not None:
+        n = int(tracking.get("quality_rows", 2))
+        trainer.add_callback(QualityCheck(
+            [eval_raw[i] for i in range(min(n, len(eval_raw)))],
+            eval_meta[:n] if eval_meta else None, tokenizer, when,
+            int(tracking.get("quality_max_new_tokens", 24576))))
+        info(f"quality check   {when}: {min(n, len(eval_raw))} validation row(s), generated "
+             f"and scored with preparation/app_request.py — minutes of GPU per row")
+    elif when != "never":
+        info("quality check   skipped — there is no eval split to generate from")
+
     head("train")
     stats = trainer.train(resume_from_checkpoint=bool(t.get("resume", False)))
     info(f"loss {stats.training_loss:.4f}   {stats.metrics.get('train_runtime', 0) / 60:.1f} min")
@@ -550,6 +1045,7 @@ def main() -> None:
                          * int(t.get("gradient_accumulation_steps", 8)),
                 "loss": stats.training_loss,
                 "config": args.config.name,
+                "data_sha": fp.get("data_train_sha256", "?"),
                 "sha": "",
             }
             # Upload the folder save_pretrained just wrote rather than re-serialising
@@ -591,7 +1087,7 @@ def main() -> None:
     info("1. paste the registry/models.yaml entry printed above into a PR")
     info("2. run eval/ against it — a lower training loss is not evidence of anything")
     info("3. only then deploy, and update registry/deployments.yaml in the same PR")
-    info("4. python training/scripts/pod.py stop   # the pod bills until you do")
+    info("4. make pod-stop pbbi-training   # the pod bills until you do")
 
 
 if __name__ == "__main__":

@@ -23,7 +23,9 @@ runs on a rented RunPod H200 over ssh. Client documents never leave the laptop
 except train.jsonl / eval.jsonl, copied to the pod for the run.
 
 ${B}FIRST TIME${N}
-  1. cp .env.example .env      fill HF_TOKEN, RUNPOD_API_KEY, SSH_PUBLIC_KEY
+  1. cp .env.example .env      this laptop: RUNPOD_API_KEY, HF_TOKEN (make data)
+     cp runpod/pbbi-training/.env.example runpod/pbbi-training/.env
+                               the pod: HF_TOKEN, SSH_PUBLIC_KEY
                                (WANDB_API_KEY optional — no key, no experiment tracking)
   2. make setup                .venv with the laptop deps;  brew install poppler  (pdftotext)
   3. ssh-add                   your GitHub key in the ssh agent — the pod clones through it
@@ -33,10 +35,10 @@ ${B}EACH RUN${N}
                                  with  Split : Train | Validation | Test
   2. make data                   build preparation/data/{train,eval,test}.jsonl
   3. git commit && git push      the pod runs origin/<branch>, not your working copy
-  4. make pod-up                 rent the H200 — ${R}billing starts${N} (~\$4.59/hr)
+  4. make pod-up pbbi-training   rent the H200 — ${R}billing starts${N} (~\$5.29/hr)
   5. make train                  code + data to the pod, base model, start training
   6. make train-logs             follow it (Ctrl-C stops watching, not training)
-  7. make pod-stop               ${R}stop billing${N} — as soon as the log says the adapter pushed
+  7. make pod-stop pbbi-training ${R}stop billing${N} — as soon as the log says the adapter pushed
   then score the adapter on preparation/data/test.jsonl  (preparation/app_request.py)
 
   Data changed, pod already prepared:  make data train-push-data train-run
@@ -58,21 +60,32 @@ ${B}SETTINGS${N}  ${D}override on the command line:  make <target> NAME=value${N
     CONFIG   $CONFIG
     BRANCH   $BRANCH   ${D}(the pod checks out origin/$BRANCH)${N}
     PY       $PY
+    CHART    pbbi-training   ${D}(pod-* targets; or the word after one. pod-up/down/stop/delete have no default)${N}
 EOF
 
 echo
 echo "${B}STATUS${N}  ${D}this laptop only — nothing is sent anywhere${N}"
 
-# secrets
+# secrets: this laptop's in .env, the training pod's in its chart folder
+envval() { grep -E "^$2=" "$1" 2>/dev/null | head -1 | cut -d= -f2-; }
 if [ -f .env ]; then
-  for k in HF_TOKEN RUNPOD_API_KEY SSH_PUBLIC_KEY; do
-    v=$(grep -E "^$k=" .env | head -1 | cut -d= -f2-)
-    if [ -n "$v" ]; then ok "$k" "set in .env"; else bad "$k" "empty or missing in .env" "fill $k in .env"; fi
+  for k in RUNPOD_API_KEY HF_TOKEN; do
+    if [ -n "$(envval .env $k)" ]; then ok "$k" "set in .env (this laptop)"
+    else bad "$k" "empty or missing in .env" "fill $k in .env"; fi
   done
-  v=$(grep -E "^WANDB_API_KEY=" .env | head -1 | cut -d= -f2-)
-  [ -n "$v" ] && ok "WANDB_API_KEY" "set — runs are tracked" || warn "WANDB_API_KEY" "not set — training runs without experiment tracking"
 else
-  bad ".env" "missing" "cp .env.example .env, then fill it"
+  bad ".env" "missing" "cp .env.example .env, then set RUNPOD_API_KEY and HF_TOKEN"
+fi
+TENV=runpod/pbbi-training/.env
+if [ -f "$TENV" ]; then
+  for k in HF_TOKEN SSH_PUBLIC_KEY; do
+    if [ -n "$(envval $TENV $k)" ]; then ok "pod $k" "set in $TENV"
+    else bad "pod $k" "empty or missing in $TENV" "fill $k in $TENV"; fi
+  done
+  [ -n "$(envval $TENV WANDB_API_KEY)" ] && ok "pod WANDB" "set — runs are tracked" \
+    || warn "pod WANDB" "WANDB_API_KEY not in $TENV — training runs without experiment tracking"
+else
+  bad "$TENV" "missing" "cp $TENV.example $TENV, then fill it"
 fi
 
 # tools
@@ -129,5 +142,5 @@ fi
 
 echo
 if [ -n "$NEXT" ]; then echo "  ${B}next:${N} $NEXT"
-else echo "  ${B}next:${N} ready — make pod-up, then make train"; fi
+else echo "  ${B}next:${N} ready — make pod-up pbbi-training, then make train"; fi
 echo

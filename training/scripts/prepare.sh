@@ -10,9 +10,9 @@
 #   2. the version intersection actually holds after pip resolved everything
 #   3. the 55.56 GB base is in /workspace/hf, pulled as its own resumable step
 #
-# Idempotent, and safe to re-run after `pod.py stop` / `pod.py start` -- the
-# container disk is rebuilt each time, /workspace is not, so step 3 is skipped on
-# every run after the first.
+# Idempotent, and safe to re-run on a new pod or after a restart -- the container
+# disk is rebuilt each time, /workspace (the network volume) is not, so step 3 is
+# skipped on every run after the first.
 #
 #   --fast-kernels  also build flash-linear-attention + causal-conv1d (~10 min).
 #                   Without them the gated-deltanet layers fall back to a
@@ -95,7 +95,7 @@ FREE_GB=$(df -Pk "$WORKSPACE" | awk 'NR==2 {print int($4/1024/1024)}')
 echo "    disk       ${FREE_GB} GB free on $WORKSPACE"
 if [ "$SKIP_MODEL" -eq 0 ] && [ "$FREE_GB" -lt "$((MODEL_GB + 20))" ]; then
   fail "need ~$((MODEL_GB + 20)) GB free for the base plus checkpoints, have ${FREE_GB} GB. \
-Raise disk.volume_gb in training/pod.yaml (it is 300 by default) or clear $WORKSPACE/hf."
+Grow runpod/pbbi-volumes (volume.size) or clear $WORKSPACE/hf."
 fi
 
 # The whole point of doing this in preflight: a bad token 401s the 56 GB download
@@ -133,7 +133,7 @@ export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
 # HF_HUB_ENABLE_HF_TRANSFER=1 with hf_transfer missing does not fall back — it
-# raises, mid-download. pod.yaml sets the variable for every shell on the pod, so
+# raises, mid-download. the pod chart sets the variable for every shell on the pod, so
 # turn it off here rather than let a 56 GB pull die on an accelerator we do not
 # have. (hub 1.x dropped the [hf_transfer] extra; requirements.txt asks for the
 # package directly, but this pod may predate that.)
@@ -199,6 +199,20 @@ if bad:
 PY
 
 # --- 3. the base model -------------------------------------------------------
+# A pod made from runpod/pbbi-training starts pulling its base at boot
+# (runpod/pbbi-training/boot.sh). If that pull is still running, wait for it: a
+# second download of the same 56 GB into the same cache only competes with it.
+# The pid file is on the container disk, so one left by an earlier pod cannot
+# point at an unrelated process here.
+BOOT_PID=$(cat /tmp/boot-model.pid 2>/dev/null || true)
+if [ "$SKIP_MODEL" -eq 0 ] && [ -n "$BOOT_PID" ] && kill -0 "$BOOT_PID" 2>/dev/null; then
+  echo
+  echo "==> the pod's boot download is still running -- waiting for it"
+  echo "    log $WORKSPACE/boot-model.log"
+  tail -n 5 --pid="$BOOT_PID" -f "$WORKSPACE/boot-model.log" 2>/dev/null || \
+    while kill -0 "$BOOT_PID" 2>/dev/null; do sleep 15; done
+fi
+
 # Its own step on purpose: 56 GB over the wire, and a download that dies inside
 # test.py or train.py wastes the model load with it. hf_transfer + resume means
 # a re-run costs nothing once the shards are there.
@@ -251,6 +265,6 @@ cat <<'DONE'
     nohup python training/scripts/train.py training/configs/<task>-<date>.yaml \
           > /workspace/train.log 2>&1 &
 
-    The pod bills from create to `pod.py stop`, idle or not.
+    The pod bills from create to `make pod-stop pbbi-training`, idle or not.
 
 DONE

@@ -1,17 +1,24 @@
 volume:
-  # 150 GB holds the 55.6 GB v4.5-27B checkpoint plus the v4-32B one with room
-  # to spare. Volumes can grow but never shrink, so start where you mean to stay.
-  size: 150
+  # 200 GB: v4-32B (~65 GB, serving now) + v4.5-27b-pbbi (55.6, training and
+  # serving) + training checkpoints (~10) = ~131 GB, leaving ~69 GB — room for one
+  # merged PBBI model (55.6), not two. Grow to ~300 before a second merged version
+  # has to sit beside the live one. Volumes can grow but never shrink.
+  size: 200
 
   # MUST match the dataCenterIds of everything that mounts it. A network volume
   # is region-local: an endpoint in another region simply cannot attach it.
-  dataCenterId: US-NC-1
+  #
+  # US-CO-1: one of only two datacenters with network volumes AND both GPUs this
+  # stack needs — H200 (pbbi-training) and RTX PRO 6000 Blackwell Server Edition
+  # (pbbi-serverles). The other is CA-MTL-3. Checked 2026-10-11, both "Low" stock.
+  # US-NC-1, where the old endpoint ran, does not support network volumes at all.
+  dataCenterId: US-CO-1
 
 # Not sent to RunPod. Read by `deploy.py plan` so the cost is on screen before
 # you create something that bills continuously whether or not it is being read.
 cost:
   usd_per_gb_month: 0.07
   note: |
-    Flat rate, billed whether or not a pod is running. 150 GB is ~$10.50/mo.
+    Flat rate, billed whether or not a pod is running. 200 GB is ~$14/mo.
     Cheaper than a pod volume disk ($0.10/GB running, $0.20/GB stopped) and it
     survives deletion of everything that mounts it.
