@@ -8,12 +8,13 @@ volume:
   # MUST match the dataCenterIds of everything that mounts it. A network volume
   # is region-local: an endpoint in another region simply cannot attach it.
   #
-  # US-CA-2: network volumes, H200 in stock (pbbi-training), and it carries the
-  # RTX PRO 6000 Blackwell Server Edition (pbbi-serverles). Checked 2026-10-12.
-  # Was US-CO-1 until then: REST v1 rejects US-CO-1 on POST /pods, and it had no
-  # H200. EU-FR-1 also had H200 + volumes, but not the serving GPU.
-  # US-NC-1, where the old endpoint ran, does not support network volumes at all.
-  dataCenterId: US-CA-2
+  # EU-FR-1: network volumes and H200 in stock (pbbi-training), 2026-10-12.
+  # It does NOT carry the RTX PRO 6000 Blackwell Server Edition that
+  # pbbi-serverles pins, so serving cannot mount this volume as is — serving
+  # needs its own volume, or a GPU type EU-FR-1 has.
+  # Tried first: US-CO-1 (REST v1 rejects it on POST /pods, no H200) and US-CA-2
+  # (listed "Low", then "no instances currently available" on create).
+  dataCenterId: EU-FR-1
 
 # Not sent to RunPod. Read by `deploy.py plan` so the cost is on screen before
 # you create something that bills continuously whether or not it is being read.

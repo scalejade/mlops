@@ -21,7 +21,7 @@ gpu:
   # set disk.type: volume_disk below and drop the pin (the Hub carries the model
   # across instead of the volume).
   dataCenterIds:
-    - "US-CA-2"
+    - "EU-FR-1"
 
 disk:
   # network_volume  pbbi-volumes, mounted at /workspace. The serving endpoint mounts
@@ -32,7 +32,7 @@ disk:
   #                 fine: everything worth keeping (base, checkpoints, adapters,
   #                 logs) is under /workspace, and the volume outlives the pod.
   # volume_disk     a disk that lives and dies with this pod, sized by volume_gb.
-  #                 The fallback when US-CA-2 has no H200.
+  #                 The fallback when EU-FR-1 has no H200.
   type: network_volume
   volume_gb: 300          # read only for volume_disk; the network volume's size is
                           # set in runpod/pbbi-volumes/values.yaml.
