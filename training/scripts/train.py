@@ -74,6 +74,10 @@ def load_config(path: Path) -> dict:
         raise Fail(f"config not found: {path}")
     cfg = yaml.safe_load(path.read_text()) or {}
 
+    if cfg.get("status") == "draft":
+        raise Fail(f"{path.name} is marked `status: draft` — it is not ready to train. "
+                   "Finish its TODOs, then remove that line.")
+
     for key in ("run_name", "model", "data", "train", "output"):
         if key not in cfg:
             raise Fail(f"{path.name} is missing the required top-level key '{key}'")

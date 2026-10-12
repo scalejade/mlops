@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One entry point for a training run, meant to be executed ON THE POD.
 #
-#   bash training/run.sh training/configs/pbbi-extraction-2026-10-10.yaml
+#   bash training/run.sh training/configs/pbbi-extraction.yaml
 #   bash training/run.sh <config> --check     # validate and stop, train nothing
 #
 # It does, in order: check the config and its data exist, prepare the pod if it
@@ -36,6 +36,9 @@ printf '\ndata\n'
 python3 - "$CONFIG_ABS" "$REPO" <<'PY'
 import sys, yaml, pathlib
 cfg = yaml.safe_load(open(sys.argv[1])); repo = pathlib.Path(sys.argv[2])
+if cfg.get("status") == "draft":
+    sys.exit(f"\n  error  {pathlib.Path(sys.argv[1]).name} is marked `status: draft` — not ready "
+             "to train.\n         Finish its TODOs, then remove that line.\n")
 data = cfg.get("data", {})
 if data.get("hub_repo"):
     print(f"  hub_repo        {data['hub_repo']} @ {data.get('revision','main')}")

@@ -19,7 +19,7 @@ SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
 .DEFAULT_GOAL := help
 
-CONFIG   ?= training/configs/pbbi-extraction-2026-10-10.yaml
+CONFIG   ?= training/configs/pbbi-extraction.yaml
 PY       ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 BRANCH   ?= $(shell git rev-parse --abbrev-ref HEAD)
 REPO_URL ?= $(shell git remote get-url origin)

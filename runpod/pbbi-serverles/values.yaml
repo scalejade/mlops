@@ -4,7 +4,11 @@
 # Engine args are NOT here. They live in models/<model>/model.config so the same
 # model gets the same engine config wherever it is served. deploy.py reads that
 # file and sends it as the template env.
-model: qwen-sea-lion-v4-32b-it
+#
+# A directory under models/, set by MODEL in this folder's .env (template:
+# .env.example) — so switching what the endpoint serves is a .env edit, not a
+# chart change. `deploy.py plan pbbi-serverles` prints what it resolved to.
+model: ${MODEL}
 adapter: null
 
 template:

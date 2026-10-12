@@ -3,8 +3,8 @@
 # so anything not written here did not happen and cannot be reproduced.
 #
 #   python preparation/build.py --tokenizer scalejade/qwen-sea-lion-v4.5-27b-pbbi
-#   python training/scripts/train.py training/configs/pbbi-extraction-2026-10-10.yaml --dry-run
-#   python training/scripts/train.py training/configs/pbbi-extraction-2026-10-10.yaml
+#   python training/scripts/train.py training/configs/pbbi-extraction.yaml --dry-run
+#   python training/scripts/train.py training/configs/pbbi-extraction.yaml
 #
 # Trained on the app's own request shape (perjanjian-baku-bi, sys-prompt @ e028187):
 # system = extraction_system.md verbatim, user = "DOCUMENT:\n" + served PDF text.

@@ -48,18 +48,20 @@ boot:
   # in flight rather than starting a second one.
   script: boot.sh
 
-  # What to pull: a Hub repo id or its URL, copied from the browser. Empty: pull
-  # nothing — the pod boots straight to ssh.
+  # What to pull, set in this folder's .env (BOOT_MODEL, BOOT_REVISION):
+  # a Hub repo id or its URL, copied from the browser. Empty: pull nothing — the
+  # pod boots straight to ssh.
   #   scalejade/qwen-sea-lion-v4.5-27b-pbbi     55.6 GB, the PBBI training base
   #   https://huggingface.co/scalejade/gemma-4-31B-it-baseline     23.3 GB
   # For training, make it the config's model.base: train.py loads that one, and if
   # this differs, `make train` downloads model.base on top of whatever this pulled.
-  # `make pod-plan pbbi-training` checks it exists with this folder's HF_TOKEN.
-  model: scalejade/qwen-sea-lion-v4.5-27b-pbbi
+  # `make pod-plan pbbi-training` prints what it resolved to and checks it exists
+  # with this folder's HF_TOKEN.
+  model: ${BOOT_MODEL:-}
 
   # A commit sha, a branch or a tag. Empty means main, which moves under you — pin
   # it, and to the same sha as the config's model.revision when training on it.
-  revision: 8d32a4b9c89c9272ae8d660792182da7950955a2
+  revision: ${BOOT_REVISION:-}
 
 container:
   # A CUDA image with torch already built. bitsandbytes, xformers and Triton all

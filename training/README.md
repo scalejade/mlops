@@ -70,7 +70,8 @@ torch 2.8 / CUDA 12.8 image.
 | `requirements.txt` | Installed **on the pod**. Torch deliberately excluded — it comes with the image. |
 | `configs/` | One YAML per run. Committed. The config is the experiment record. |
 | `configs/example-lora.yaml` | Annotated reference. Copy it; do not run it. |
-| `configs/pbbi-extraction-2026-10-10.yaml` | The live PBBI clause-extraction run. |
+| `configs/pbbi-extraction.yaml` | The live PBBI clause-extraction run. |
+| `configs/pbbi-analysis.yaml` | **Draft.** PBBI analysis — `status: draft` makes `run.sh` and `train.py` refuse it until its TODOs are done. |
 | `../preparation/` | Data prep (top-level, outside training/): `raw/` (one folder per document, gitignored), `build.py`, `app_request.py`, `serving_text.py`, `prompts/extraction_system.md`, `FORMAT.md`, `README.md`. Builds `data/train.jsonl` / `data/eval.jsonl` / `data/test.jsonl` — the config already points at the first two. |
 | `scripts/pod.py` | Create / status / **stop** / delete the pod, from your laptop. |
 | `scripts/prepare.sh` | Deps + version check + the 56 GB base. `run.sh` calls it when needed. |

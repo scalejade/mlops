@@ -192,11 +192,24 @@ def load_chart(name: str) -> dict:
     return chart
 
 
+def chart_model(chart: dict) -> str:
+    """values.yaml's `model`, with ${VAR} resolved from the chart's .env.
+
+    It names a directory under models/, so `model: ${MODEL}` lets runpod/<chart>/.env
+    pick what the endpoint serves without editing the committed chart.
+    """
+    model = chart["values"].get("model")
+    if not model:
+        raise Fail("values.yaml is missing 'model'")
+    return expand(str(model), chart).strip()
+
+
 def load_model_config(model: str) -> dict:
     """Parse models/<model>/model.config (KEY=VALUE) into the template env dict."""
     path = REPO / "models" / model / "model.config"
     if not path.exists():
-        raise Fail(f"no engine config at {path.relative_to(REPO)}")
+        available = ", ".join(sorted(p.parent.name for p in (REPO / "models").glob("*/model.config")))
+        raise Fail(f"no engine config at {path.relative_to(REPO)}\n  available: {available}")
     env: dict[str, str] = {}
     for raw in path.read_text().splitlines():
         line = raw.strip()
@@ -455,9 +468,7 @@ def build_volume_payload(chart: dict) -> dict:
 def build_serverless_payloads(chart: dict, deps: dict[str, str]) -> tuple[dict, dict, dict]:
     """Return (template_payload, endpoint_payload, engine_env)."""
     values = chart["values"]
-    model = values.get("model")
-    if not model:
-        raise Fail("values.yaml is missing 'model'")
+    model = chart_model(chart)
 
     engine_env = expand(load_model_config(model), chart)
 
@@ -590,7 +601,8 @@ def cmd_plan(name: str, apply: bool = False) -> None:
 
     elif kind == "serverless":
         template_payload, endpoint_payload, engine_env = build_serverless_payloads(chart, deps)
-        print(f"  {c('model', '1')}     {chart['values']['model']}"
+        model = chart_model(chart)
+        print(f"  {c('model', '1')}     {model}"
               + (f"  + adapter {chart['values']['adapter']}" if chart["values"].get("adapter") else ""))
         print(f"  {c('image', '1')}     {template_payload['imageName']}\n")
         preflight_serverless(chart, engine_env, deps)
@@ -601,7 +613,7 @@ def cmd_plan(name: str, apply: bool = False) -> None:
             if k in endpoint_payload:
                 info(f"{k:<20} {endpoint_payload[k]}")
         print(f"\n  {c('engine env', '1')}  ({len(engine_env)} vars from "
-              f"models/{chart['values']['model']}/model.config)")
+              f"models/{model}/model.config)")
         for k in ("MODEL_NAME", "MAX_MODEL_LEN", "TENSOR_PARALLEL_SIZE", "GPU_MEMORY_UTILIZATION",
                   "KV_CACHE_DTYPE", "ENABLE_PREFIX_CACHING", "MAX_NUM_SEQS", "HF_TOKEN"):
             if k in engine_env:

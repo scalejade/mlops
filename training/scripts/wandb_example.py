@@ -39,7 +39,7 @@ from pathlib import Path
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]
-DEFAULT_CONFIG = REPO / "training/configs/pbbi-extraction-2026-10-10.yaml"
+DEFAULT_CONFIG = REPO / "training/configs/pbbi-extraction.yaml"
 KEY_FILES = (REPO / ".env", REPO / "runpod/pbbi-training/.env")
 
 

@@ -248,8 +248,9 @@ def boot_model(cfg: dict) -> tuple[str, str] | None:
 
     boot.model takes a repo id (scalejade/x) or its huggingface.co URL, as copied from
     the browser; a /tree/<rev> URL also supplies the revision. Empty means no model.
+    Both may be ${VAR}s from the chart's .env (values.yaml sets BOOT_MODEL there).
     """
-    boot = cfg.get("boot") or {}
+    boot = expand(cfg.get("boot") or {})
     model = str(boot.get("model") or "").strip()
     revision = str(boot.get("revision") or "").strip()
     if not model:
