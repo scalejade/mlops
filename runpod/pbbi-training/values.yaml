@@ -20,14 +20,8 @@ gpu:
   # datacenter has no H200 free, apply fails at create time — then either wait, or
   # set disk.type: volume_disk below and drop the pin (the Hub carries the model
   # across instead of the volume).
-  #
-  # 2026-10-12: no H200 in US-CO-1, and the only H200s in stock were in
-  # datacenters without network-volume support — so this run is on volume_disk,
-  # pinned to the two that had stock and are in REST v1's enum. Back to the
-  # volume: disk.type network_volume, this list back to the volume's datacenter.
   dataCenterIds:
-    - "US-GA-2"
-    - "US-NC-1"
+    - "US-CA-2"
 
 disk:
   # network_volume  pbbi-volumes, mounted at /workspace. The serving endpoint mounts
@@ -38,8 +32,8 @@ disk:
   #                 fine: everything worth keeping (base, checkpoints, adapters,
   #                 logs) is under /workspace, and the volume outlives the pod.
   # volume_disk     a disk that lives and dies with this pod, sized by volume_gb.
-  #                 The fallback when US-CO-1 has no H200.
-  type: volume_disk
+  #                 The fallback when US-CA-2 has no H200.
+  type: network_volume
   volume_gb: 300          # read only for volume_disk; the network volume's size is
                           # set in runpod/pbbi-volumes/values.yaml.
   container_gb: 100       # / : the image, pip wheels, CUDA. Unsloth's deps are large.
@@ -102,7 +96,7 @@ container:
 # starts billing by the second.
 cost:
   # Verified 2026-10-11 via the RunPod API: "NVIDIA H200" (H200 SXM, 141 GB),
-  # $5.29/hr secure in US-CO-1 (it was $4.59 on 2026-08-25). `make pod-gpus`
+  # $5.29/hr secure (it was $4.59 on 2026-08-25). `make pod-gpus`
   # reprints the live rate.
   usd_per_hour: 5.29
   note: |
