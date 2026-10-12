@@ -20,8 +20,14 @@ gpu:
   # datacenter has no H200 free, apply fails at create time — then either wait, or
   # set disk.type: volume_disk below and drop the pin (the Hub carries the model
   # across instead of the volume).
+  #
+  # 2026-10-12: no H200 in US-CO-1, and the only H200s in stock were in
+  # datacenters without network-volume support — so this run is on volume_disk,
+  # pinned to the two that had stock and are in REST v1's enum. Back to the
+  # volume: disk.type network_volume, this list back to the volume's datacenter.
   dataCenterIds:
-    - "US-CO-1"
+    - "US-GA-2"
+    - "US-NC-1"
 
 disk:
   # network_volume  pbbi-volumes, mounted at /workspace. The serving endpoint mounts
@@ -33,7 +39,7 @@ disk:
   #                 logs) is under /workspace, and the volume outlives the pod.
   # volume_disk     a disk that lives and dies with this pod, sized by volume_gb.
   #                 The fallback when US-CO-1 has no H200.
-  type: network_volume
+  type: volume_disk
   volume_gb: 300          # read only for volume_disk; the network volume's size is
                           # set in runpod/pbbi-volumes/values.yaml.
   container_gb: 100       # / : the image, pip wheels, CUDA. Unsloth's deps are large.

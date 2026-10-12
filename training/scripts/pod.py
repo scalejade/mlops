@@ -335,7 +335,11 @@ def build_payload(cfg: dict, deps: dict) -> dict:
         # pod fails as a 401 on a private repo rather than as a missing variable.
         "env": {k: str(v) for k, v in (container.get("env") or {}).items() if str(v) != ""},
     }
-    if gpu.get("dataCenterIds"):
+    # On a network volume the volume decides the region: RunPod places the pod in
+    # its datacenter, and resolve_volume() has already checked the pin agrees. The
+    # pin is not sent, because REST v1's dataCenterIds enum lags the datacenters
+    # volumes exist in — US-CO-1 holds volumes but is a 400 on POST /pods.
+    if gpu.get("dataCenterIds") and disk.get("type") != "network_volume":
         payload["dataCenterIds"] = gpu["dataCenterIds"]
         payload["dataCenterPriority"] = "custom"
 
