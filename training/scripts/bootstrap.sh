@@ -45,6 +45,10 @@ RC
 echo "==> torch (from the image, not reinstalled)"
 python -c "import torch; print(torch.__version__, 'cuda', torch.version.cuda)"
 
+# The image's python is Ubuntu 24.04's system python 3.12, marked
+# EXTERNALLY-MANAGED (PEP 668), and torch is installed into it. The container
+# disk is thrown away with the pod, so installing beside torch is the intent.
+export PIP_BREAK_SYSTEM_PACKAGES=1
 pip install --upgrade pip -q
 pip install -q -r "$REPO/training/requirements.txt"
 

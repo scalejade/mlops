@@ -57,12 +57,21 @@ done
 fail() { echo; echo "!!  $*" >&2; exit 1; }
 
 # --- credentials -------------------------------------------------------------
-# On a pod created by pod.py these are already in the environment. Sourcing .env
-# covers the other case: a pod made by hand, or a shell that lost them.
+# RunPod puts the pod's env (HF_TOKEN, WANDB_API_KEY, ...) on PID 1 and in
+# /etc/rp_environment, which only an interactive shell's .bashrc sources. The
+# Makefile drives this over non-interactive ssh, so load it here.
+[ -f /etc/rp_environment ] && { set -a; . /etc/rp_environment; set +a; }
+
+# Sourcing .env covers the other case: a pod made by hand, or a shell that lost them.
 if [ -f "$REPO/.env" ]; then
   set -a; . "$REPO/.env"; set +a
   echo "==> loaded $REPO/.env"
 fi
+
+# The image's python is Ubuntu 24.04's system python 3.12, marked
+# EXTERNALLY-MANAGED (PEP 668), and torch is installed into it. The container
+# disk is thrown away with the pod, so installing beside torch is the intent.
+export PIP_BREAK_SYSTEM_PACKAGES=1
 
 # --- preflight ---------------------------------------------------------------
 # Everything below is cheap and everything below is a reason to stop before pip

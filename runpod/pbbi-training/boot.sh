@@ -38,6 +38,7 @@ mkdir -p /workspace "${HF_HOME:-/workspace/hf}" 2>/dev/null
   # Progress bars are carriage-return redraws: over 56 GB they would fill the log
   # with megabytes of one line. The per-attempt result is what is worth keeping.
   export HF_HUB_DISABLE_PROGRESS_BARS=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+  export PIP_BREAK_SYSTEM_PACKAGES=1   # Ubuntu 24.04 system python, PEP 668
 
   # The image has no huggingface_hub. Same bounds as training/requirements.txt,
   # so bootstrap.sh finds them already satisfied. hf_transfer is optional: with

@@ -18,6 +18,11 @@ CONFIG="${1:-}"
 MODE="${2:-run}"
 LOG="${TRAIN_LOG:-/workspace/train.log}"
 
+# RunPod puts the pod's env (HF_TOKEN, WANDB_API_KEY, ...) on PID 1 and in
+# /etc/rp_environment, which only an interactive shell's .bashrc sources. The
+# Makefile drives this over non-interactive ssh, so load it here.
+[ -f /etc/rp_environment ] && { set -a; . /etc/rp_environment; set +a; }
+
 die() { printf '\n  error  %s\n\n' "$*" >&2; exit 1; }
 say() { printf '  %s\n' "$*"; }
 
