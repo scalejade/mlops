@@ -8,7 +8,7 @@ is) and values.yaml (how it is configured). Three kinds, all at the same level:
     runpod/
       deploy.py
       pbbi-volumes/      kind: volume
-      pbbi-serverles/    kind: serverless
+      pbbi-serverless-extraction/    kind: serverless
       pbbi-training/     kind: pod, no engine — driven by training/scripts/pod.py
 
     python runpod/deploy.py list                     # charts on disk vs what is live
@@ -369,6 +369,31 @@ def preflight_serverless(chart: dict, env: dict, deps: dict[str, str]) -> None:
                 f"{ep_dcs}. A network volume cannot attach across regions."
             )
 
+    # The worker resolves MODEL_NAME at cold start. Unpinned, that is "main": if it
+    # moved since pbbi-loader filled the volume, every cold start downloads again.
+    rev = env.get("MODEL_REVISION", "")
+    if not rev or rev == "main":
+        warn("MODEL_REVISION is not pinned in the model.config — the worker resolves "
+             "'main' at every cold start; pin it to the sha pbbi-loader pulled.")
+
+    if str(env.get("ENABLE_LORA", "")).lower() == "true":
+        if int(env.get("MAX_CPU_LORAS", 1) or 0) < int(env.get("MAX_LORAS", 1) or 1):
+            problems.append(f"MAX_CPU_LORAS={env.get('MAX_CPU_LORAS')} < MAX_LORAS="
+                            f"{env.get('MAX_LORAS')} — vLLM refuses it and the worker crash-loops.")
+        adapter = chart_adapter(chart)
+        if adapter:
+            cfg = hub_adapter_config(adapter, chart)
+            if cfg is not None:
+                r = int(cfg.get("r", 0) or 0)
+                if r > int(env.get("MAX_LORA_RANK", 16)):
+                    problems.append(f"adapter rank r={r} > MAX_LORA_RANK={env.get('MAX_LORA_RANK')}")
+                base = cfg.get("base_model_name_or_path", "")
+                if base and base != env.get("MODEL_NAME"):
+                    warn(f"adapter was trained on {base}, but the endpoint serves "
+                         f"{env.get('MODEL_NAME')} — a LoRA only fits the weights it was trained on.")
+                ok(f"adapter {adapter['repo']} @ {adapter['revision']} on the Hub, r={r} "
+                   f"-> vLLM model name '{adapter['name']}', read from {adapter['path']}")
+
     # max_tokens has to fit inside the context window alongside the prompt.
     max_tokens = int(chart["values"].get("request_defaults", {}).get("max_tokens", 0) or 0)
     if max_tokens and max_len and max_tokens >= max_len:
@@ -465,12 +490,70 @@ def build_volume_payload(chart: dict) -> dict:
     }
 
 
+def hub_adapter_config(adapter: dict, chart: dict) -> dict | None:
+    """adapter_config.json at the pinned revision, read with the chart's HF_TOKEN.
+
+    A wrong repo or tag fails here, in plan, instead of as a worker that loads the
+    base and then 404s every LoRA request. None (with a warning) if the Hub is
+    unreachable.
+    """
+    url = (f"https://huggingface.co/{adapter['repo']}/resolve/"
+           f"{adapter['revision']}/adapter_config.json")
+    token = chart["secrets"].get("HF_TOKEN")
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "scalejade-mlops/1.0", **({"Authorization": f"Bearer {token}"} if token else {})})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        raise Fail(f"adapter {adapter['repo']} @ {adapter['revision']}: HTTP {e.code} on the Hub — "
+                   f"wrong repo or revision, or runpod/{chart['name']}/.env HF_TOKEN cannot read it")
+    except urllib.error.URLError as e:
+        warn(f"could not reach the Hub to check the adapter ({e.reason})")
+        return None
+
+
+def chart_adapter(chart: dict) -> dict | None:
+    """values.yaml `adapter:` -> {name, repo, revision, path}, or None to serve the base only.
+
+    The adapter is read from the network volume, never the Hub: pbbi-loader puts it
+    at <volume>/adapters/<repo name>/<revision>, and that path is pinned by revision
+    the way an HF repo id resolving "main" is not.
+    """
+    raw = chart["values"].get("adapter")
+    if not raw:
+        return None
+    a = expand(raw, chart)
+    missing = [k for k in ("name", "repo", "revision") if not str(a.get(k) or "").strip()]
+    if missing:
+        raise Fail(f"adapter: {', '.join(missing)} not set (values.yaml / runpod/{chart['name']}/.env)")
+    if str(a["repo"]).count("/") != 1:
+        raise Fail(f"adapter.repo={a['repo']!r} — expected <org>/<name>")
+    mount = chart["values"].get("template", {}).get("volumeMountPath", "/runpod-volume")
+    a["path"] = f"{mount}/adapters/{a['repo'].split('/')[1]}/{a['revision']}"
+    return a
+
+
 def build_serverless_payloads(chart: dict, deps: dict[str, str]) -> tuple[dict, dict, dict]:
     """Return (template_payload, endpoint_payload, engine_env)."""
     values = chart["values"]
     model = chart_model(chart)
 
     engine_env = expand(load_model_config(model), chart)
+
+    # LoRA is a property of the deployment, not of the base model, so it is set
+    # here rather than in models/<model>/model.config. The worker (>= v2.27) turns
+    # each of these into the vllm serve flag of the same name.
+    adapter = chart_adapter(chart)
+    if adapter:
+        rank = int(adapter.get("max_rank") or engine_env.get("MAX_LORA_RANK") or 16)
+        engine_env.update({
+            "ENABLE_LORA": "true",
+            "MAX_LORAS": "1",
+            "MAX_CPU_LORAS": "1",      # vLLM refuses max_cpu_loras < max_loras; 0 crash-loops
+            "MAX_LORA_RANK": str(rank),
+            "LORA_MODULES": f"{adapter['name']}={adapter['path']}",
+        })
 
     tpl = expand(values.get("template", {}), chart)
     if not tpl.get("imageName"):
@@ -602,8 +685,9 @@ def cmd_plan(name: str, apply: bool = False) -> None:
     elif kind == "serverless":
         template_payload, endpoint_payload, engine_env = build_serverless_payloads(chart, deps)
         model = chart_model(chart)
+        adapter = chart_adapter(chart)
         print(f"  {c('model', '1')}     {model}"
-              + (f"  + adapter {chart['values']['adapter']}" if chart["values"].get("adapter") else ""))
+              + (f"  + adapter {adapter['repo']} @ {adapter['revision']}" if adapter else ""))
         print(f"  {c('image', '1')}     {template_payload['imageName']}\n")
         preflight_serverless(chart, engine_env, deps)
         print(f"\n  {c('hardware', '1')}")
@@ -614,8 +698,9 @@ def cmd_plan(name: str, apply: bool = False) -> None:
                 info(f"{k:<20} {endpoint_payload[k]}")
         print(f"\n  {c('engine env', '1')}  ({len(engine_env)} vars from "
               f"models/{model}/model.config)")
-        for k in ("MODEL_NAME", "MAX_MODEL_LEN", "TENSOR_PARALLEL_SIZE", "GPU_MEMORY_UTILIZATION",
-                  "KV_CACHE_DTYPE", "ENABLE_PREFIX_CACHING", "MAX_NUM_SEQS", "HF_TOKEN"):
+        for k in ("MODEL_NAME", "MODEL_REVISION", "MAX_MODEL_LEN", "TENSOR_PARALLEL_SIZE",
+                  "GPU_MEMORY_UTILIZATION", "KV_CACHE_DTYPE", "ENABLE_PREFIX_CACHING", "MAX_NUM_SEQS",
+                  "ENABLE_LORA", "MAX_LORA_RANK", "LORA_MODULES", "HF_HOME", "HF_TOKEN"):
             if k in engine_env:
                 info(f"{k:<24} {mask(k, engine_env[k])}")
 

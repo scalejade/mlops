@@ -17,16 +17,22 @@ whatever its kind:
 runpod/
   deploy.py
   pbbi-volumes/          kind: volume       chart.yaml  values.yaml
-  pbbi-serverles/      kind: serverless   chart.yaml  values.yaml
+  pbbi-serverless-extraction/      kind: serverless   chart.yaml  values.yaml
   pbbi-training/         kind: pod          chart.yaml  values.yaml
 ```
 
-`pbbi-training` is the H200 training pod. Its `boot.sh` is its start command: on
-every start it pulls `boot.model` (values.yaml; empty pulls nothing) into
-`/workspace/hf` on `pbbi-volumes` in the background, then hands over to the
-image's `/start.sh`. It shares `pbbi-volumes` with the
-endpoint, but it runs no engine, so `deploy.py` refuses it and points at
-`make pod-plan` / `pod-up` / `pod-stop pbbi-training` (`training/scripts/pod.py`) instead.
+`pbbi-training` is the H200 training pod, on its own disk (no network volume, no
+region pin). Its `boot.sh` is its start command: on every start it pulls
+`boot.model` (values.yaml; empty pulls nothing) into `/workspace/hf` in the
+background, then hands over to the image's `/start.sh`. It runs no engine, so
+`deploy.py` refuses it and points at `make pod-plan` / `pod-up` /
+`pod-delete pbbi-training` (`training/scripts/pod.py`) instead.
+
+`pbbi-loader` is a CPU pod on `pbbi-volumes` that exists for minutes: `make
+volume-fill` creates it, its `boot.sh` pulls the serving base model (HF cache,
+`/workspace/hf`) and the LoRA adapter (`/workspace/adapters/<repo>/<revision>`),
+verifies both, and the target deletes the pod. The endpoint sees the same
+directories under `/runpod-volume`, so no worker downloads weights on a cold start.
 `pod-up`, `pod-down`, `pod-stop` and `pod-delete` always need the chart named.
 
 Adding a fourth service means adding a fourth directory. `deploy.py` discovers charts
@@ -40,7 +46,7 @@ already exists.
 ```yaml
 apiVersion: v1
 kind: serverless            # serverless | pod | volume
-name: pbbi-serverles # must equal the directory name
+name: pbbi-serverless-extraction # must equal the directory name
 version: 0.1.0
 description: Clause extraction over Indonesian loan agreements.
 dependencies:
@@ -100,7 +106,7 @@ the target:
 
 ```bash
 make pod-plan pbbi-volumes        # -> deploy.py plan  pbbi-volumes
-make pod-up   pbbi-serverles      # -> deploy.py apply pbbi-serverles
+make pod-up   pbbi-serverless-extraction      # -> deploy.py apply pbbi-serverless-extraction
 make pod-up   pbbi-training      # -> the training pod (pod.py)
 make pod-up                       # -> refused: pod-up always names its chart
 ```
@@ -116,7 +122,7 @@ Order matters on a cold account:
 
 ```bash
 python runpod/deploy.py apply pbbi-volumes        # volume first
-python runpod/deploy.py apply pbbi-serverles    # then what mounts it
+python runpod/deploy.py apply pbbi-serverless-extraction    # then what mounts it
 ```
 
 Then update `registry/deployments.yaml` with the id it prints, in the same PR.
@@ -132,7 +138,7 @@ cp .env.example .env
 
 # One .env per chart, next to its chart.yaml. Each folder's .env.example lists
 # what that chart needs; charts without secrets (pbbi-volumes) have none.
-cp runpod/pbbi-serverles/.env.example runpod/pbbi-serverles/.env
+cp runpod/pbbi-serverless-extraction/.env.example runpod/pbbi-serverless-extraction/.env
 # HF_TOKEN         the workers pull private scalejade/ weights (read access)
 cp runpod/pbbi-training/.env.example  runpod/pbbi-training/.env
 # HF_TOKEN         pull the base, push the adapter (write access)

@@ -8,8 +8,9 @@
 #                           pod-up creates billable things, so it never guesses which
 #   make train              push code + data, pull the base model, start training
 #   make train-logs         follow it
-#   make pod-stop pbbi-training   stop billing — do not forget this one (deletes the
-#                           pod; /workspace lives on the pbbi-volumes network volume)
+#   make pod-delete pbbi-training   stop billing — do not forget this one, once the
+#                           adapter is on the Hub (the pod's own disk goes with it)
+#   make volume-fill        serving: a CPU pod pulls base + adapter onto pbbi-volumes
 #
 # Every pod target finds its resource by name (runpod/<chart>) through the RunPod
 # API, so no address is ever copied by hand. Override anything on the command
@@ -34,8 +35,8 @@ SSH_OPTS    := -A -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 
 BASE     = $(shell $(PY) -c "import yaml;print(yaml.safe_load(open('$(CONFIG)'))['model']['base'])")
 REVISION = $(shell $(PY) -c "import yaml;print(yaml.safe_load(open('$(CONFIG)'))['model'].get('revision','main'))")
 
-# The chart a pod-* target acts on: the word after it, so `make pod-up pbbi-serverles`
-# names runpod/pbbi-serverles. CHART=<name> works too. Without one it is the training
+# The chart a pod-* target acts on: the word after it, so `make pod-up pbbi-serverless-extraction`
+# names runpod/pbbi-serverless-extraction. CHART=<name> works too. Without one it is the training
 # pod, which is also the only chart the train-* targets ever use — except for the
 # targets that create or tear down (pod-up, pod-down, pod-stop, pod-delete), which
 # refuse to guess (CHART_GIVEN is empty then).
@@ -84,6 +85,7 @@ DOTENV   = if [ -f .env ]; then set -a; . ./.env; set +a; fi
 
 .PHONY: help setup data test wandb-example \
         pod-gpus pod-plan pod-up pod-down pod-status pod-ssh pod-start pod-stop pod-delete \
+        volume-fill \
         train train-push-code train-push-data train-pull-model train-check \
         train-run train-logs train-kill
 
@@ -132,11 +134,32 @@ pod-ssh:  ## open a shell on a pod
 pod-start:  ## resume a stopped volume-disk pod (a network-volume pod is recreated with pod-up)
 	$(call chart_do,start)
 
-pod-stop:  ## make pod-stop <chart>: STOP GPU BILLING — a network-volume pod is deleted; /workspace stays
+pod-stop:  ## make pod-stop <chart>: pause the GPU — its own disk keeps billing; a network-volume pod is deleted
 	$(call chart_do_named,stop)
 
-pod-delete:  ## make pod-delete <chart>: tear its resource down (asks first)
+pod-delete:  ## make pod-delete <chart>: tear it down, disk and all — the end of a training run (asks first)
 	$(call chart_do_named,delete)
+
+# ---------------------------------------------------------------- serving
+##@ Serving  (the endpoint's network volume)
+
+LOADER := $(PY) training/scripts/pod.py --chart pbbi-loader
+
+volume-fill:  ## CPU pod pulls base + adapter onto pbbi-volumes, verifies, then deletes itself
+	@$(LOADER) apply
+	@echo "  waiting for the loader's ssh (the download already started at boot)"; \
+	  for i in $$(seq 1 40); do t=$$($(LOADER) ssh-target 2>/dev/null) && break; t=; sleep 15; done; \
+	  [ -n "$$t" ] || { echo "  !! no ssh after 10 min — make pod-status pbbi-loader, then make pod-delete pbbi-loader"; exit 1; }; \
+	  set -- $$t; rc=0; \
+	  ssh $(SSH_OPTS) -p "$$2" "$$1" '\
+	    tail -n 0 -F /workspace/loader.log & T=$$!; \
+	    for i in $$(seq 1 720); do [ -f /workspace/loader.done ] || [ -f /workspace/loader.failed ] && break; sleep 5; done; \
+	    sleep 2; kill $$T; \
+	    if [ -f /workspace/loader.done ]; then echo "  volume filled   $$(cat /workspace/loader.done)"; \
+	    elif [ -f /workspace/loader.failed ]; then echo "  !! loader failed: $$(cat /workspace/loader.failed)"; exit 1; \
+	    else echo "  !! still downloading after 60 min — /workspace/loader.log on the volume"; exit 1; fi' || rc=$$?; \
+	  echo "  deleting the loader pod (the volume keeps everything it pulled)"; \
+	  $(LOADER) delete --yes; exit $$rc
 
 # ----------------------------------------------------------------- train
 ##@ Training on the pod  (run from this laptop)

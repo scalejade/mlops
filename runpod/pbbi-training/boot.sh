@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # pbbi-training boot: the pod's start command, on every start of every pod.
 #
-# Pulls a model into /workspace/hf — the pbbi-volumes network volume — in the
+# Pulls a model into /workspace/hf — the pod's own disk — in the
 # BACKGROUND, then hands over to the image's own /start.sh, so sshd and jupyter
 # come up at once instead of after tens of GB. On a volume that already has the
 # model, the pull is a quick check and nothing is downloaded.

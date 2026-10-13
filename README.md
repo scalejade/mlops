@@ -79,6 +79,8 @@ mlops/
 │   └── clone_model.py         mirror an upstream model into the scalejade namespace
 │
 ├── docs/
+│   ├── README.md              index: one folder per project
+│   ├── pbbi/                  PBBI: overview, training, serving, troubleshooting
 │   └── reports/               deployment trials, incident write-ups, benchmarks
 │
 └── scratch/                   gitignored. Working files, one-off outputs, junk.
@@ -236,15 +238,18 @@ a `registry/models.yaml` entry to paste.
 **T7 — stop paying, immediately**
 
 ```bash
-make pod-stop pbbi-training   # GPU billing stops HERE, not when training ends
+make pod-delete pbbi-training   # billing stops HERE, not when training ends
 ```
 
-The pod is on the `pbbi-volumes` network volume, which RunPod cannot stop, so this
-deletes the pod. `/workspace` stays on the volume (flat monthly rate), so the next
-run skips the 25-minute base download. That includes the copies of `train.jsonl` /
-`eval.jsonl` under `/workspace/mlops/preparation/data` — the same volume the serving
-endpoint mounts. If the NDA requires it, remove them (`make pod-ssh pbbi-training`)
-once the adapter is safely on the Hub, before `pod-stop`.
+The training pod runs on its own disk, not a network volume, so it can go wherever
+an H200 is free. Deleting it takes the disk too: the base model (re-downloaded in
+~2 min next time), checkpoints, logs, and the copies of `train.jsonl` / `eval.jsonl`
+— which is what the NDA wants. Only delete once the log shows the adapter pushed.
+`make pod-stop` only pauses the GPU; the 150 GB disk keeps billing (~$1/day).
+
+**To serve it:** `make volume-fill` rents a CPU pod for a few minutes that pulls the
+base and the adapter onto `pbbi-volumes` (the endpoint's network volume), checks
+them, and deletes itself. Then `python runpod/deploy.py apply pbbi-serverless-extraction`.
 
 **T8 — register and evaluate**
 

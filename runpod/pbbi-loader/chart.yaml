@@ -1,0 +1,22 @@
+# Volume loader. A CPU pod that fills pbbi-volumes for the serving endpoint, then
+# goes away.
+#
+# A serverless worker that finds its weights missing downloads them itself on a
+# cold start — 55 GB from the Hub while a request waits. This pod does that once,
+# ahead of time, on a CPU (cents an hour, no GPU stock to wait for):
+#
+#   make volume-fill    # create -> pull base + adapter -> verify -> delete
+#
+# It mounts pbbi-volumes at /workspace; the endpoint mounts it at /runpod-volume.
+# Same directory, so /workspace/hf here is /runpod-volume/hf there, and
+# /workspace/adapters/<repo>/<revision> is the path deploy.py hands vLLM.
+
+apiVersion: v1
+kind: pod
+name: pbbi-loader
+version: 0.1.0
+description: CPU pod that pulls the serving base model and LoRA adapter onto pbbi-volumes.
+
+dependencies:
+  - name: pbbi-volumes
+    kind: volume

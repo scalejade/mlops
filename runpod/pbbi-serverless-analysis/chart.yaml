@@ -1,0 +1,22 @@
+# Serverless endpoint for the PBBI analysis model. Scales to zero.
+#
+# DRAFT until scalejade/pbbi-analysis-lora exists: ADAPTER_REVISION in .env is
+# empty, and deploy.py plan refuses an adapter without a revision. Same base,
+# same volume and same shape as pbbi-serverless-extraction; only adapter: differs.
+#
+#   python runpod/deploy.py plan   pbbi-serverless-analysis
+#   python runpod/deploy.py apply  pbbi-serverless-analysis
+#   python runpod/deploy.py status pbbi-serverless-analysis
+
+apiVersion: v1
+kind: serverless
+name: pbbi-serverless-analysis
+version: 0.1.0
+description: PBBI document analysis (base + analysis LoRA), OpenAI-compatible. Draft.
+
+# Resolved by name at apply time: deploy.py looks the volume up on the account
+# and injects its real id as endpoint.networkVolumeId. Apply the dependency
+# first — deploy.py refuses to continue if it is not there yet.
+dependencies:
+  - name: pbbi-volumes
+    kind: volume

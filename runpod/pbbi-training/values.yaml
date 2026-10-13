@@ -1,6 +1,5 @@
-# The PBBI training pod: one H200, on the shared pbbi-volumes network volume.
-# Identity and the volume dependency are in chart.yaml; the pod's name is the
-# chart name. Driven by training/scripts/pod.py, through the Makefile.
+# The PBBI training pod: one H200 on its own disk, rented per run and deleted after.
+# Identity is in chart.yaml; the pod's name is the chart name. Driven by training/scripts/pod.py, through the Makefile.
 #
 # Field names map 1:1 to the RunPod REST API, same as the other charts, so there
 # is no translation layer to reason about. ${VAR} resolves from this folder's
@@ -12,39 +11,33 @@ gpu:
   type: "NVIDIA H200"
   count: 1                # Unsloth is single-GPU. A second H200 idles and still bills.
 
-  # Network volumes exist on Secure Cloud only. COMMUNITY cannot attach one.
+  # SECURE: interruption-free. COMMUNITY is cheaper but can be reclaimed mid-run.
   cloudType: SECURE
 
-  # MUST equal pbbi-volumes' dataCenterId: a network volume does not attach across
-  # regions, and pod.py refuses the mismatch before anything is created. If this
-  # datacenter has no H200 free, apply fails at create time — then either wait, or
-  # set disk.type: volume_disk below and drop the pin (the Hub carries the model
-  # across instead of the volume).
-  dataCenterIds:
-    - "EU-FR-1"
+  # No dataCenterIds pin: on its own disk the pod can go wherever an H200 is free.
+  # Tying it to the serving volume's datacenter is what cost an afternoon on
+  # 2026-10-12 (US-CO-1 rejected, US-CA-2 sold out). The base model downloads in
+  # ~2 min at boot, and the adapter reaches serving through the Hub, not a disk.
 
 disk:
-  # network_volume  pbbi-volumes, mounted at /workspace. The serving endpoint mounts
-  #                 the same volume at /runpod-volume, so HF_HOME=/workspace/hf here
-  #                 and /runpod-volume/hf there are the same directory: the base this
-  #                 pod downloads is the one the endpoint loads.
-  #                 A pod on a network volume cannot be STOPPED, only deleted. That is
-  #                 fine: everything worth keeping (base, checkpoints, adapters,
-  #                 logs) is under /workspace, and the volume outlives the pod.
-  # volume_disk     a disk that lives and dies with this pod, sized by volume_gb.
-  #                 The fallback when EU-FR-1 has no H200.
-  type: network_volume
-  volume_gb: 300          # read only for volume_disk; the network volume's size is
-                          # set in runpod/pbbi-volumes/values.yaml.
+  # volume_disk     a disk that lives and dies with this pod, mounted at /workspace.
+  #                 Base model, checkpoints, the training data and logs live here and
+  #                 go with `make pod-delete` — which is also what the NDA wants for
+  #                 the data. A STOPPED pod still bills this disk ($0.20/GB/mo), so
+  #                 delete, don't stop, once the adapter is on the Hub.
+  # network_volume  pbbi-volumes (serving's volume). Possible, but it pins the pod to
+  #                 that datacenter's H200 stock; see dataCenterIds above.
+  type: volume_disk
+  volume_gb: 150          # 55.6 GB base + checkpoints (~1 GB each for r=16) + HF
+                          # cache slack. pod.py warns below 150.
   container_gb: 100       # / : the image, pip wheels, CUDA. Unsloth's deps are large.
                           # Wiped with every new pod, so deps reinstall per pod.
   mount_path: /workspace
 
 boot:
   # Runs on every start of every pod, as its start command: pulls `model` into
-  # /workspace/hf (pbbi-volumes) in the background, then hands over to the image's
-  # /start.sh so ssh is up at once. On a volume that already holds it, nothing is
-  # downloaded. Log: /workspace/boot-model.log. `make train` waits for a pull still
+  # /workspace/hf in the background, then hands over to the image's /start.sh so
+  # ssh is up at once. On a disk that already holds it, nothing is downloaded. Log: /workspace/boot-model.log. `make train` waits for a pull still
   # in flight rather than starting a second one.
   script: boot.sh
 
@@ -100,7 +93,7 @@ cost:
   # reprints the live rate.
   usd_per_hour: 5.29
   note: |
-    A pod bills while RUNNING, idle or not. On the network volume
-    `make pod-stop pbbi-training` deletes the pod: GPU billing ends, and /workspace
-    (base, checkpoints, adapters, logs) stays on pbbi-volumes at its flat monthly rate. The container disk goes
-    with the pod, so the next one reinstalls deps (~15 min with the fast kernels).
+    A pod bills while RUNNING, idle or not. `make pod-delete pbbi-training` ends
+    it all once the adapter is on the Hub; `make pod-stop` only pauses the GPU and
+    leaves the 150 GB disk billing (~$1/day). Each new pod reinstalls deps (~15 min)
+    and re-downloads the base (~2 min).

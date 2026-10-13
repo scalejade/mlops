@@ -66,7 +66,7 @@ torch 2.8 / CUDA 12.8 image.
 | Path | What |
 |---|---|
 | `run.sh` | **One entry point on the pod.** Checks the config and its data, prepares the pod if needed, dry-runs, then trains in the background. Does not create or stop the pod — billing stays an explicit command. |
-| `../runpod/pbbi-training/` | The H200 pod chart: GPU, region, image, env, and the `pbbi-volumes` network volume it mounts. Maps 1:1 to the RunPod API. |
+| `../runpod/pbbi-training/` | The H200 pod chart: GPU, image, env, and its own 150 GB disk (no network volume, no region pin). Maps 1:1 to the RunPod API. |
 | `requirements.txt` | Installed **on the pod**. Torch deliberately excluded — it comes with the image. |
 | `configs/` | One YAML per run. Committed. The config is the experiment record. |
 | `configs/example-lora.yaml` | Annotated reference. Copy it; do not run it. |
@@ -278,23 +278,17 @@ then lower `max_seq_length`, and only then turn on `load_in_4bit`.
 ## Things that have a cost attached
 
 - **A pod bills while running, idle or not.** Finishing a run does not stop the meter;
-  `make pod-stop pbbi-training` does. The pod is on the `pbbi-volumes` network volume, which RunPod
-  cannot stop, so `pod-stop` **deletes** the pod. Nothing that matters goes with it:
-  `/workspace` is the volume — base model, checkpoints, adapters, logs — and the next
-  `make pod-up pbbi-training` mounts it again. The volume bills flat (~$14/mo for 200 GB) either way.
-- **The container disk goes with every pod; `/workspace` does not.** That is why
-  `HF_HOME` points at `/workspace/hf`, and why a new pod reinstalls the pip deps
-  (~15 min with the fast kernels) but never re-downloads the base. Whether deps are
-  installed is decided by importing them, not by `versions.txt`, which lives on the
-  volume and would outlive them.
-- **One volume, two mount points.** The serving endpoint mounts the same volume at
-  `/runpod-volume` with `HF_HOME=/runpod-volume/hf` — the same directory as
-  `/workspace/hf` here. The base this pod downloads is the one the endpoint loads.
-- **Region and GPU type ids are exact strings.** `make pod-gpus` prints the real ids.
-  A network volume only attaches inside its own region, so the pod is pinned to
-  `pbbi-volumes`' datacenter (US-CO-1) on Secure Cloud. If that datacenter has no
-  H200 free, `pod-up` fails at create time: wait, or set `disk.type: volume_disk` in
-  the chart and drop the pin — the Hub then carries the model across instead.
+  `make pod-delete pbbi-training` does, once the log shows the adapter pushed. The pod
+  runs on its own disk (`disk.type: volume_disk`), and the disk goes with it: base
+  model, checkpoints, logs, and the training data copies. `make pod-stop` only pauses
+  the GPU — a stopped pod's 150 GB disk still bills (~$1/day).
+- **Every new pod starts clean.** Deps reinstall (~15 min) and the base re-downloads
+  at boot (~2 min, measured 2026-10-12). That is the price of not tying the pod to a
+  network volume — which, on 2026-10-12, pinned it to datacenters with no H200 free.
+- **No region pin.** Without a network volume the pod goes wherever an H200 is free.
+  The adapter reaches serving through the Hub; `make volume-fill` (a CPU pod) then
+  copies base + adapter onto `pbbi-volumes`, the endpoint's volume.
+- **GPU type ids are exact strings.** `make pod-gpus` prints the real ids.
 - **`versions.txt`** on the pod records the torch/unsloth/transformers versions the
   run actually used. The config records intent; that file records reality. Copy it
   into the run's notes for anything you may need to reproduce.

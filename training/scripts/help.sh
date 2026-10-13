@@ -38,8 +38,10 @@ ${B}EACH RUN${N}
   4. make pod-up pbbi-training   rent the H200 — ${R}billing starts${N} (~\$5.29/hr)
   5. make train                  code + data to the pod, base model, start training
   6. make train-logs             follow it (Ctrl-C stops watching, not training)
-  7. make pod-stop pbbi-training ${R}stop billing${N} — as soon as the log says the adapter pushed
+  7. make pod-delete pbbi-training ${R}stop billing${N} — as soon as the log says the adapter pushed
+                                 (pod-stop only pauses the GPU; the pod's disk keeps billing)
   then score the adapter on preparation/data/test.jsonl  (preparation/app_request.py)
+  to serve it: make volume-fill (base + adapter onto pbbi-volumes), then deploy pbbi-serverless-extraction
 
   Data changed, pod already prepared:  make data train-push-data train-run
 EOF

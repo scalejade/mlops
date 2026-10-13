@@ -9,7 +9,7 @@ Rent, watch and stop the H200 training pod, from your laptop.
     python training/scripts/pod.py ssh-target      # "root@<ip> <port>", for the Makefile
     python training/scripts/pod.py stop            # stop billing (network volume: deletes the pod)
     python training/scripts/pod.py start           # resume (volume-disk pods only)
-    python training/scripts/pod.py delete          # tear down, disk and all
+    python training/scripts/pod.py delete [--yes]  # tear down, disk and all
 
 Config is a runpod/<chart>/ directory (chart.yaml + values.yaml), next to the
 volume and endpoint charts it shares storage with. pbbi-training by default;
@@ -20,6 +20,10 @@ console, because a pod made there exists nowhere in git.
 This is deliberately separate from runpod/deploy.py: that tool's `pod` kind is
 shaped for serving (it renders a `vllm serve` command and preflights engine args).
 A training pod runs nothing on boot but sshd; the work is started by hand.
+
+A chart's values.yaml has either a `gpu:` block (pbbi-training, the H200) or a
+`cpu:` block (pbbi-loader, which only downloads models onto pbbi-volumes for the
+serving endpoint, so it has no reason to rent a GPU).
 
 Only dependency is PyYAML.  pip install pyyaml
 """
@@ -168,6 +172,13 @@ def load_config() -> dict:
     return cfg
 
 
+def compute(cfg: dict) -> tuple[str, dict]:
+    """("GPU", gpu block) or ("CPU", cpu block). Exactly one of the two is set."""
+    if cfg.get("cpu") and cfg.get("gpu"):
+        raise Fail(f"{CHART.name}/values.yaml has both gpu: and cpu: — a pod is one or the other")
+    return ("CPU", cfg["cpu"]) if cfg.get("cpu") else ("GPU", cfg.get("gpu") or {})
+
+
 def on_network_volume(cfg: dict) -> bool:
     return cfg.get("disk", {}).get("type") == "network_volume"
 
@@ -243,30 +254,49 @@ def find_pod(name: str) -> dict | None:
 HF_URL = re.compile(r"^https?://huggingface\.co/([^/\s]+/[^/\s]+?)(?:/tree/([^/\s]+))?/?$")
 
 
-def boot_model(cfg: dict) -> tuple[str, str] | None:
-    """values.yaml boot.model / boot.revision -> (repo id, revision), or None to pull nothing.
+def boot_ref(cfg: dict, key: str = "model") -> tuple[str, str] | None:
+    """values.yaml boot.<key> / boot.<key>_revision -> (repo id, revision), or None.
 
-    boot.model takes a repo id (scalejade/x) or its huggingface.co URL, as copied from
-    the browser; a /tree/<rev> URL also supplies the revision. Empty means no model.
-    Both may be ${VAR}s from the chart's .env (values.yaml sets BOOT_MODEL there).
+    key is "model" (boot.model / boot.revision). Takes a repo id (scalejade/x) or its huggingface.co URL,
+    as copied from the browser; a /tree/<rev> URL also supplies the revision. Empty
+    means nothing to pull. Both may be ${VAR}s from the chart's .env.
     """
     boot = expand(cfg.get("boot") or {})
-    model = str(boot.get("model") or "").strip()
-    revision = str(boot.get("revision") or "").strip()
-    if not model:
+    rev_key = "revision" if key == "model" else f"{key}_revision"
+    repo = str(boot.get(key) or "").strip()
+    revision = str(boot.get(rev_key) or "").strip()
+    if not repo:
         return None
-    m = HF_URL.match(model)
+    m = HF_URL.match(repo)
     if m:
-        model, revision = m.group(1), revision or (m.group(2) or "")
-    if model.count("/") != 1:
-        raise Fail(f"boot.model={model!r} — expected <org>/<name> or a huggingface.co URL")
+        repo, revision = m.group(1), revision or (m.group(2) or "")
+    if repo.count("/") != 1:
+        raise Fail(f"boot.{key}={repo!r} — expected <org>/<name> or a huggingface.co URL")
     if not revision:
-        warn(f"boot.revision is empty — pulling {model} @ main, which moves. Pin a commit sha.")
+        warn(f"boot.{rev_key} is empty — pulling {repo} @ main, which moves. Pin a sha or tag.")
         revision = "main"
-    return model, revision
+    return repo, revision
 
 
-def check_on_hub(model: str, revision: str) -> None:
+def boot_adapters(cfg: dict) -> list[tuple[str, str]]:
+    """values.yaml boot.adapters -> [(repo id, revision), ...].
+
+    One string, "repo@revision" entries separated by commas (BOOT_ADAPTERS in the
+    chart's .env), so one `make volume-fill` puts every endpoint's adapter on the
+    volume. Each entry must carry its revision: an unpinned adapter is exactly what
+    makes a worker download again on its cold start.
+    """
+    raw = str(expand((cfg.get("boot") or {}).get("adapters") or "")).strip()
+    out = []
+    for entry in filter(None, (e.strip() for e in raw.split(","))):
+        repo, _, rev = entry.partition("@")
+        if repo.count("/") != 1 or not rev:
+            raise Fail(f"boot.adapters entry {entry!r} — expected <org>/<name>@<tag or sha>")
+        out.append((repo, rev))
+    return out
+
+
+def check_on_hub(model: str, revision: str, what: str = "boot model") -> None:
     """Resolve the repo and revision with the pod's own HF_TOKEN, before anything bills.
 
     A typo here would otherwise surface as a 404 in the boot log of a running H200.
@@ -281,7 +311,7 @@ def check_on_hub(model: str, revision: str) -> None:
             info_ = json.loads(r.read().decode())
     except urllib.error.HTTPError as e:
         if e.code in (401, 403, 404):
-            raise Fail(f"boot.model: {model} @ {revision} is not readable with the HF_TOKEN in "
+            raise Fail(f"{what}: {model} @ {revision} is not readable with the HF_TOKEN in "
                        f"{chart_env_path()} (HTTP {e.code}) — wrong name, wrong revision, or "
                        f"the token has no access to it")
         warn(f"could not check {model} on the Hub (HTTP {e.code}) — the pod will try anyway")
@@ -290,7 +320,7 @@ def check_on_hub(model: str, revision: str) -> None:
         warn(f"could not reach the Hub to check {model} ({e.reason}) — the pod will try anyway")
         return
     size = sum((f.get("size") or 0) for f in info_.get("siblings") or []) / 1e9
-    ok(f"boot model {model} @ {str(info_.get('sha'))[:12]} on the Hub, {size:.1f} GB")
+    ok(f"{what} {model} @ {str(info_.get('sha'))[:12]} on the Hub, {size:.1f} GB")
 
 
 def boot_command(cfg: dict) -> tuple[list[str], dict[str, str]] | None:
@@ -310,23 +340,31 @@ def boot_command(cfg: dict) -> tuple[list[str], dict[str, str]] | None:
         raise Fail(f"boot.script: {script.relative_to(REPO)} not found")
     encoded = base64.b64encode(script.read_bytes()).decode()
     cmd = ["bash", "-c", f"echo {encoded} | base64 -d > /boot.sh && exec bash /boot.sh"]
-    model = boot_model(cfg)
-    env = {"BOOT_MODEL": model[0], "BOOT_REVISION": model[1]} if model else {}
+    env = {}
+    model, adapters = boot_ref(cfg, "model"), boot_adapters(cfg)
+    if model:
+        env.update(BOOT_MODEL=model[0], BOOT_REVISION=model[1])
+    if adapters:
+        env["BOOT_ADAPTERS"] = ",".join(f"{r}@{v}" for r, v in adapters)
     return cmd, env
 
 
 def build_payload(cfg: dict, deps: dict) -> dict:
-    gpu = expand(cfg.get("gpu", {}))
+    kind, block = compute(cfg)
+    block = expand(block)
     disk = cfg.get("disk", {})
     container = expand(cfg.get("container", {}))
 
     payload = {
         "name": cfg["name"],
         "imageName": container["image"],
-        "computeType": "GPU",
-        "cloudType": gpu.get("cloudType", "SECURE"),
-        "gpuTypeIds": [gpu["type"]],
-        "gpuCount": int(gpu.get("count", 1)),
+        "computeType": kind,
+        "cloudType": block.get("cloudType", "SECURE"),
+        **({"cpuFlavorIds": list(block["flavors"]),
+            "cpuFlavorPriority": "availability",
+            "vcpuCount": int(block.get("vcpus", 2))} if kind == "CPU" else
+           {"gpuTypeIds": [block["type"]],
+            "gpuCount": int(block.get("count", 1))}),
         "containerDiskInGb": int(disk.get("container_gb", 100)),
         "volumeMountPath": disk.get("mount_path", "/workspace"),
         "ports": container.get("ports", ["22/tcp", "8888/http"]),
@@ -339,8 +377,8 @@ def build_payload(cfg: dict, deps: dict) -> dict:
     # its datacenter, and resolve_volume() has already checked the pin agrees. The
     # pin is not sent, because REST v1's dataCenterIds enum lags the datacenters
     # volumes exist in — US-CO-1 holds volumes but is a 400 on POST /pods.
-    if gpu.get("dataCenterIds") and disk.get("type") != "network_volume":
-        payload["dataCenterIds"] = gpu["dataCenterIds"]
+    if block.get("dataCenterIds") and disk.get("type") != "network_volume":
+        payload["dataCenterIds"] = block["dataCenterIds"]
         payload["dataCenterPriority"] = "custom"
 
     # train.py turns this into the cost/ panels on W&B. Informational only: the
@@ -377,13 +415,13 @@ def resolve_volume(cfg: dict) -> dict:
     for v in vols or []:
         if v.get("name") == name:
             ok(f"network volume '{name}' -> {v['id']}  ({v.get('dataCenterId')})")
-            region = (cfg.get("gpu", {}).get("dataCenterIds") or [None])[0]
+            region = (compute(cfg)[1].get("dataCenterIds") or [None])[0]
             if region and v.get("dataCenterId") != region:
                 raise Fail(
                     f"volume '{name}' is in {v.get('dataCenterId')} but the pod asks for "
                     f"{region}. Network volumes are region-local and will not attach. "
-                    f"Either move the pod to {v.get('dataCenterId')} — if H200s are "
-                    f"available there — or use disk.type: volume_disk."
+                    f"Pin the pod to {v.get('dataCenterId')} in values.yaml, or (a GPU "
+                    f"pod with no H200 there) use disk.type: volume_disk."
                 )
             return {"volume": v["id"]}
     raise Fail(
@@ -393,12 +431,16 @@ def resolve_volume(cfg: dict) -> dict:
 
 
 def preflight(cfg: dict) -> None:
-    gpu, disk = cfg.get("gpu", {}), cfg.get("disk", {})
+    kind, gpu = compute(cfg)
+    disk = cfg.get("disk", {})
     problems: list[str] = []
 
-    if not gpu.get("type"):
+    if kind == "CPU":
+        if not gpu.get("flavors"):
+            problems.append("cpu.flavors is required — e.g. [cpu3c, cpu5c] (REST v1 cpuFlavorIds)")
+    elif not gpu.get("type"):
         problems.append("gpu.type is required — run `pod.py gpus h200` for the real id")
-    if int(gpu.get("count", 1)) != 1:
+    elif int(gpu.get("count", 1)) != 1:
         problems.append(
             f"gpu.count={gpu.get('count')}. Unsloth is single-GPU: extra GPUs sit idle "
             f"and still bill. Use one H200, or move to Axolotl/TRL+FSDP."
@@ -410,16 +452,16 @@ def preflight(cfg: dict) -> None:
             problems.append("disk.type is network_volume but chart.yaml declares no volume "
                             "dependency — there is no volume to attach")
         if gpu.get("cloudType", "SECURE") != "SECURE":
-            problems.append(f"gpu.cloudType={gpu.get('cloudType')} cannot attach a network "
+            problems.append(f"cloudType={gpu.get('cloudType')} cannot attach a network "
                             f"volume — they exist on Secure Cloud only")
         if not gpu.get("dataCenterIds"):
-            problems.append("a network volume pod must pin gpu.dataCenterIds to the volume's "
+            problems.append("a network volume pod must pin dataCenterIds to the volume's "
                             "datacenter, or RunPod may place it where the volume cannot attach")
     if not gpu.get("dataCenterIds"):
-        warn("no gpu.dataCenterIds — you get whatever region has capacity")
+        info("no dataCenterIds pin — the pod goes wherever there is capacity")
     if disk.get("type") == "volume_disk":
-        warn("disk.type is volume_disk — the disk dies with the pod. STOP the pod when "
-             "idle, never delete it, or the next run re-downloads the base model.")
+        info("disk.type is volume_disk — the disk dies with the pod. `make pod-delete` when "
+             "done (a stopped pod still bills its disk); the adapter is on the Hub by then.")
     if int(disk.get("volume_gb", 0) or 0) < 150 and disk.get("type") == "volume_disk":
         warn(f"volume_gb={disk.get('volume_gb')} — a bf16 30B checkpoint alone is ~60 GB "
              f"before optimizer state and checkpoints.")
@@ -464,8 +506,9 @@ def cmd_plan(apply: bool = False) -> None:
     payload = build_payload(cfg, deps)
 
     print()
-    for key in ("imageName", "gpuTypeIds", "gpuCount", "containerDiskInGb",
-                "volumeInGb", "networkVolumeId", "volumeMountPath", "dataCenterIds"):
+    for key in ("imageName", "computeType", "gpuTypeIds", "gpuCount", "cpuFlavorIds",
+                "vcpuCount", "containerDiskInGb", "volumeInGb", "networkVolumeId",
+                "volumeMountPath", "dataCenterIds"):
         if key in payload:
             info(f"{key:<20} {payload[key]}")
     for k, v in payload["env"].items():
@@ -475,6 +518,9 @@ def cmd_plan(apply: bool = False) -> None:
         info(f"{'boot':<20} pulls {payload['env']['BOOT_MODEL']} @ "
              f"{payload['env']['BOOT_REVISION'][:12]} into /workspace/hf, in the background")
         check_on_hub(payload["env"]["BOOT_MODEL"], payload["env"]["BOOT_REVISION"])
+        for repo, rev in boot_adapters(cfg):
+            info(f"{'boot':<20} and {repo} @ {rev} into /workspace/adapters/{repo.split('/')[1]}/{rev}")
+            check_on_hub(repo, rev, what="boot adapter")
     elif payload.get("dockerStartCmd"):
         info(f"{'boot':<20} boot.model is empty — no model is pulled")
 
@@ -508,9 +554,13 @@ def cmd_plan(apply: bool = False) -> None:
     if payload["env"].get("BOOT_MODEL"):
         print( "  boot   the base model is downloading into /workspace/hf in the background.")
         print(f"         watch it: make pod-ssh {CHART.name}, then tail -f /workspace/boot-model.log")
-        print( "         make train waits for it, so there is no need to.")
-    print( "  then   make train")
-    print(f"  stop   make pod-stop {CHART.name}     # billing continues until you do\n")
+    if payload["computeType"] == "CPU":
+        print( "  then   make volume-fill waits for the download and deletes this pod")
+        print(f"  stop   make pod-delete {CHART.name}   # if you created it by hand\n")
+        return
+    print( "  then   make train   (it waits for the boot download)")
+    print(f"  stop   make pod-delete {CHART.name}   # when the adapter is on the Hub; billing "
+          f"continues until you do\n")
 
 
 def cmd_status() -> None:
@@ -575,7 +625,7 @@ def cmd_power(action: str) -> None:
         info("GPU billing has stopped. The disk still bills until the pod is deleted.")
 
 
-def cmd_delete() -> None:
+def cmd_delete(yes: bool = False) -> None:
     cfg = load_config()
     live = find_pod(cfg["name"])
     if not live:
@@ -587,7 +637,7 @@ def cmd_delete() -> None:
             warn("if training is still running it is killed with the pod — make train-logs first.")
     else:
         warn("this deletes the pod AND its disk. Adapters not pushed to the Hub are lost.")
-    if input(f"  type the pod name to confirm [{cfg['name']}]: ").strip() != cfg["name"]:
+    if not yes and input(f"  type the pod name to confirm [{cfg['name']}]: ").strip() != cfg["name"]:
         sys.exit("  aborted")
     api("DELETE", f"/pods/{live['id']}")
     ok(f"pod {live['id']} deleted")
@@ -607,7 +657,9 @@ def main() -> None:
     sub.add_parser("ssh-target", help='print "root@<ip> <port>" for scripts')
     sub.add_parser("stop", help="stop billing, keep the disk (on a network volume: delete)")
     sub.add_parser("start", help="resume a stopped volume-disk pod")
-    sub.add_parser("delete", help="tear down, disk and all")
+    d = sub.add_parser("delete", help="tear down, disk and all")
+    d.add_argument("--yes", action="store_true",
+                   help="no confirmation prompt (make volume-fill, after the download is verified)")
     args = ap.parse_args()
 
     global CHART
@@ -627,7 +679,7 @@ def main() -> None:
     elif args.cmd in ("stop", "start"):
         cmd_power(args.cmd)
     elif args.cmd == "delete":
-        cmd_delete()
+        cmd_delete(yes=args.yes)
 
 
 if __name__ == "__main__":

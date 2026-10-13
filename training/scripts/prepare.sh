@@ -11,8 +11,8 @@
 #   3. the 55.56 GB base is in /workspace/hf, pulled as its own resumable step
 #
 # Idempotent, and safe to re-run on a new pod or after a restart -- the container
-# disk is rebuilt each time, /workspace (the network volume) is not, so step 3 is
-# skipped on every run after the first.
+# disk is rebuilt each time, /workspace (the pod's volume disk) survives a
+# stop/start, so step 3 is skipped when the base is already there.
 #
 #   --fast-kernels  also build flash-linear-attention + causal-conv1d (~10 min).
 #                   Without them the gated-deltanet layers fall back to a
@@ -104,7 +104,7 @@ FREE_GB=$(df -Pk "$WORKSPACE" | awk 'NR==2 {print int($4/1024/1024)}')
 echo "    disk       ${FREE_GB} GB free on $WORKSPACE"
 if [ "$SKIP_MODEL" -eq 0 ] && [ "$FREE_GB" -lt "$((MODEL_GB + 20))" ]; then
   fail "need ~$((MODEL_GB + 20)) GB free for the base plus checkpoints, have ${FREE_GB} GB. \
-Grow runpod/pbbi-volumes (volume.size) or clear $WORKSPACE/hf."
+Grow disk.volume_gb in runpod/pbbi-training/values.yaml or clear $WORKSPACE/hf."
 fi
 
 # The whole point of doing this in preflight: a bad token 401s the 56 GB download

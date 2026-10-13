@@ -1,12 +1,12 @@
 # Serverless endpoint. Bursty production traffic, scales to zero.
 #
-#   python runpod/deploy.py plan   pbbi-serverles
-#   python runpod/deploy.py apply  pbbi-serverles
-#   python runpod/deploy.py status pbbi-serverles
+#   python runpod/deploy.py plan   pbbi-serverless-extraction
+#   python runpod/deploy.py apply  pbbi-serverless-extraction
+#   python runpod/deploy.py status pbbi-serverless-extraction
 
 apiVersion: v1
 kind: serverless
-name: pbbi-serverles
+name: pbbi-serverless-extraction
 version: 0.1.0
 description: Clause extraction over Indonesian loan agreements, OpenAI-compatible.
 

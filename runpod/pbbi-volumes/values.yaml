@@ -1,20 +1,19 @@
 volume:
-  # 200 GB: v4-32B (~65 GB, serving now) + v4.5-27b-pbbi (55.6, training and
-  # serving) + training checkpoints (~10) = ~131 GB, leaving ~69 GB — room for one
-  # merged PBBI model (55.6), not two. Grow to ~300 before a second merged version
-  # has to sit beside the live one. Volumes can grow but never shrink.
+  # 200 GB: v4.5-27b-pbbi base (55.6) + LoRA adapters (~0.3 each) + HF cache
+  # slack — room for a second base or one merged model (55.6) beside the live one.
+  # Volumes can grow but never shrink.
   size: 200
 
-  # MUST match the dataCenterIds of everything that mounts it. A network volume
-  # is region-local: an endpoint in another region simply cannot attach it.
+  # MUST match the dataCenterIds of everything that mounts it: pbbi-serverless-extraction and
+  # pbbi-loader. A network volume is region-local; nothing in another region can
+  # attach it.
   #
-  # EU-FR-1: network volumes and H200 in stock (pbbi-training), 2026-10-12.
-  # It does NOT carry the RTX PRO 6000 Blackwell Server Edition that
-  # pbbi-serverles pins, so serving cannot mount this volume as is — serving
-  # needs its own volume, or a GPU type EU-FR-1 has.
-  # Tried first: US-CO-1 (REST v1 rejects it on POST /pods, no H200) and US-CA-2
-  # (listed "Low", then "no instances currently available" on create).
-  dataCenterId: EU-FR-1
+  # CA-MTL-3, checked 2026-10-13: network volumes, accepted by REST v1 for pods
+  # and endpoints, and the RTX PRO 6000 Blackwell Server Edition pbbi-serverless-extraction
+  # pins in stock ("Low"). Ruled out: US-CO-1 (REST v1 rejects it), US-CA-2
+  # (serving GPU listed but not in stock), EU-FR-1 (no serving GPU at all).
+  # Training no longer needs it, so H200 stock here does not matter.
+  dataCenterId: CA-MTL-3
 
 # Not sent to RunPod. Read by `deploy.py plan` so the cost is on screen before
 # you create something that bills continuously whether or not it is being read.

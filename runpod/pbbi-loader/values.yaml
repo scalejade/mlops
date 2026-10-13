@@ -1,0 +1,55 @@
+# The loader pod: CPU only, on pbbi-volumes. Driven by training/scripts/pod.py
+# through `make volume-fill`. ${VAR} resolves from this folder's .env only.
+
+cpu:
+  # REST v1 cpuFlavorIds. "c" = compute-optimized (2 GB RAM per vCPU), plenty for
+  # a download. RunPod takes whichever is available, in this order.
+  flavors: [cpu3c, cpu5c]
+  vcpus: 4                # parallel shard downloads; hf_transfer uses them all
+
+  # Network volumes exist on Secure Cloud only.
+  cloudType: SECURE
+
+  # MUST equal pbbi-volumes' dataCenterId. Not sent to RunPod (the volume decides
+  # the region); pod.py refuses a mismatch before anything is created.
+  dataCenterIds:
+    - "CA-MTL-3"
+
+disk:
+  type: network_volume
+  container_gb: 20        # the image and huggingface_hub; the weights go to the volume
+  mount_path: /workspace
+
+boot:
+  # Pulls `model` and every entry of `adapters`, verifies them, writes /workspace/loader.done, then
+  # hands over to the image's /start.sh so `make volume-fill` can ssh in and see it.
+  # Log: /workspace/loader.log (on the volume, so it outlives the pod).
+  script: boot.sh
+
+  # Pin everything. The endpoints ask vLLM for the same revisions (models/<model>/
+  # model.config MODEL_REVISION; each endpoint's ADAPTER_REVISION): a mismatch means
+  # the worker downloads again on its cold start, which is what this pod exists to stop.
+  model: ${BOOT_MODEL}
+  revision: ${BOOT_REVISION}
+  # Every endpoint's adapter, "repo@tag" comma-separated — one fill serves both
+  # pbbi-serverless-extraction and pbbi-serverless-analysis. Empty: base only.
+  adapters: ${BOOT_ADAPTERS:-}
+
+container:
+  # RunPod's CPU base: sshd via /start.sh (PUBLIC_KEY), python3, no CUDA.
+  # Tag verified on Docker Hub 2026-10-13.
+  image: runpod/base:1.4.0-ubuntu2404
+  ports:
+    - "22/tcp"
+  env:
+    # The serverless worker reads /runpod-volume/hf — the same directory.
+    HF_HOME: /workspace/hf
+    HUGGINGFACE_HUB_CACHE: /workspace/hf/hub
+    HF_HUB_ENABLE_HF_TRANSFER: 1
+    HF_TOKEN: ${HF_TOKEN}
+    PUBLIC_KEY: ${SSH_PUBLIC_KEY:-}
+
+cost:
+  note: |
+    A CPU pod bills cents an hour; `make volume-fill` deletes it as soon as the
+    download is verified (or has failed). The volume itself bills ~$14/mo either way.
