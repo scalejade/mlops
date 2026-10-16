@@ -30,8 +30,16 @@ template:
   volumeMountPath: /runpod-volume   # serverless mounts here; pods mount /workspace
 
 endpoint:
+  # Any of these, whichever is free: one GPU type alone left the endpoint with no
+  # worker on 2026-10-16. Each holds the 55.6 GB base + KV cache, and all three
+  # do fp8 KV (KV_CACHE_DTYPE=fp8) natively — A100s are left out for that reason.
   gpuTypeIds:
-    - "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+    - "NVIDIA RTX PRO 6000 Blackwell Server Edition"   # 96 GB
+    - "NVIDIA H100 NVL"                                # 94 GB
+    - "NVIDIA H200"                                    # 141 GB
+    - "NVIDIA H100 80GB HBM3"                          # 80 GB: 55.6 weights + ~14 free; one
+                                                       # 262k sequence is 8 GiB of fp8 KV
+                                                       # (16 full-attention layers x 32 KiB/token)
   gpuCount: 1                    # GPUs PER WORKER. Must equal TENSOR_PARALLEL_SIZE.
   computeType: GPU
 
@@ -46,7 +54,7 @@ endpoint:
   # Pin the region, and pin it to the volume's region. Workers spread across
   # datacenters get throttled, and a volume in another region will not attach.
   dataCenterIds:
-    - "CA-MTL-3"                 # = pbbi-volumes' dataCenterId; has this GPU in stock
+    - "CA-MTL-3"                 # = pbbi-volumes' dataCenterId
 
   flashboot: true
 

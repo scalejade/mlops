@@ -8,11 +8,13 @@ volume:
   # pbbi-loader. A network volume is region-local; nothing in another region can
   # attach it.
   #
-  # CA-MTL-3, checked 2026-10-13: network volumes, accepted by REST v1 for pods
-  # and endpoints, and the RTX PRO 6000 Blackwell Server Edition pbbi-serverless-extraction
-  # pins in stock ("Low"). Ruled out: US-CO-1 (REST v1 rejects it), US-CA-2
-  # (serving GPU listed but not in stock), EU-FR-1 (no serving GPU at all).
-  # Training no longer needs it, so H200 stock here does not matter.
+  # CA-MTL-3: network volumes, accepted by REST v1, and the RTX PRO 6000 Server
+  # the endpoints prefer. Capacity is the risk, not configuration — 2026-10-16:
+  #   US-CA-2   filled fine, but the worker stayed throttled: all four gpuTypeIds
+  #             sold out within 15 minutes of the stock check
+  #   CA-MTL-3  RTX PRO 6000 listed "Low", but no CPU pod for the loader
+  # Check stock for the endpoints' gpuTypeIds AND a CPU for pbbi-loader before
+  # moving. Ruled out for good: US-CO-1 (REST v1 rejects it), EU-FR-1 (no serving GPU).
   dataCenterId: CA-MTL-3
 
 # Not sent to RunPod. Read by `deploy.py plan` so the cost is on screen before

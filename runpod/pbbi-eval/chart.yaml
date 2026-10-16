@@ -1,0 +1,19 @@
+# Adapter evaluation pod. vLLM serving the PBBI base + LoRA adapters on one GPU,
+# rented for an evaluation and deleted after.
+#
+# The serverless endpoints are tied to their network volume's datacenter, and on
+# 2026-10-16 that datacenter's serving GPUs kept selling out. This pod has its own
+# disk and no region pin, so it takes whichever listed GPU is free anywhere — the
+# way to answer "does this adapter work" without waiting on serverless capacity.
+# Same vLLM version as the endpoint worker (v2.28.0 = vLLM 0.30.0).
+#
+#   python runpod/deploy.py plan   pbbi-eval
+#   python runpod/deploy.py apply  pbbi-eval     # BILLING STARTS
+#   python runpod/deploy.py delete pbbi-eval     # when done
+
+apiVersion: v1
+kind: pod
+name: pbbi-eval
+version: 0.1.0
+description: vLLM pod serving the PBBI base + LoRA adapters, for evaluating an adapter before serverless.
+dependencies: []

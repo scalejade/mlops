@@ -132,14 +132,22 @@ two `.env` values and applying again.
 - GPUs per worker = `TENSOR_PARALLEL_SIZE`; the volume's region is in `dataCenterIds`;
   `MAX_MODEL_LEN` > 0 and leaves room for `max_tokens`
 
-## Not yet verified
+## Verified, and not yet
 
-Everything above passes `plan` offline. These have **not** run against real
-resources yet; check them on the first deploy:
+**Verified 2026-10-16:**
 
-- a CPU pod actually starts in CA-MTL-3, and `runpod/base:1.4.0-ubuntu2404` brings up
-  sshd through `/start.sh`
-- worker `v2.28.0` loads Qwen3.5 (`Qwen3_5ForConditionalGeneration`) with the LoRA
-- `MAX_MODEL_LEN=262144` fits the KV cache on a 96 GB GPU. If the worker fails at
-  startup, lower it first: the longest request needs ~55k (≤30k prompt + 24,576 output)
-- the app sends `"model": "pbbi-clause-extraction"` — it currently names the base
+- `make volume-fill` end to end in US-CA-2: a CPU pod starts, `runpod/base:1.4.0-ubuntu2404`
+  brings up sshd through `/start.sh`, base + adapter land and verify, the pod deletes itself.
+- `deploy.py apply` creates the template and endpoint, and updates them in place.
+- vLLM 0.30 loads Qwen3.5 (`Qwen3_5ForConditionalGeneration`) with the LoRA and answers
+  correctly — on `pbbi-eval`, the same vLLM as the worker (see [evaluation.md](evaluation.md)).
+
+**Not yet** — every attempt hit GPU capacity, not a configuration error:
+
+- a serverless worker answering a request: it stayed *throttled* in US-CA-2 with all
+  listed GPU types sold out, and CA-MTL-3 had no CPU for the loader. Retry when a
+  listed GPU is in stock in the volume's datacenter.
+- `MAX_MODEL_LEN=262144` on the worker. KV is small (16 full-attention layers × 32
+  KiB/token in fp8 → 8 GiB for one 262k sequence), so it should fit even an 80 GB
+  card; if a worker fails at startup, lower it first.
+- the app sending `"model": "pbbi-clause-extraction"` — it currently names the base.

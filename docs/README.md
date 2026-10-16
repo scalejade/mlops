@@ -5,7 +5,7 @@ what it is, how its models are trained and served, and what has gone wrong befor
 
 | Project | What | Pages |
 |---|---|---|
-| [pbbi/](pbbi/README.md) | Perjanjian Baku Bank Indonesia — clause extraction and analysis of payment providers' standard-form agreements | [overview](pbbi/README.md) · [training](pbbi/training.md) · [serving](pbbi/serving.md) · [troubleshooting](pbbi/troubleshooting.md) |
+| [pbbi/](pbbi/README.md) | Perjanjian Baku Bank Indonesia — clause extraction and analysis of payment providers' standard-form agreements | [overview](pbbi/README.md) · [training](pbbi/training.md) · [serving](pbbi/serving.md) · [evaluation](pbbi/evaluation.md) · [troubleshooting](pbbi/troubleshooting.md) |
 
 `reports/` is not a project: dated write-ups (deployment trials, incidents,
 benchmarks), named `YYYY-MM-DD-<topic>.md`, kept as history.

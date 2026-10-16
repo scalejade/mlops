@@ -28,6 +28,10 @@ background, then hands over to the image's `/start.sh`. It runs no engine, so
 `deploy.py` refuses it and points at `make pod-plan` / `pod-up` /
 `pod-delete pbbi-training` (`training/scripts/pod.py`) instead.
 
+`pbbi-eval` is a vLLM pod with no volume and no region pin, for testing an adapter
+on whichever GPU is free anywhere — `deploy.py apply pbbi-eval`, evaluate, `deploy.py
+delete pbbi-eval`. See `docs/pbbi/evaluation.md`.
+
 `pbbi-loader` is a CPU pod on `pbbi-volumes` that exists for minutes: `make
 volume-fill` creates it, its `boot.sh` pulls the serving base model (HF cache,
 `/workspace/hf`) and the LoRA adapter (`/workspace/adapters/<repo>/<revision>`),

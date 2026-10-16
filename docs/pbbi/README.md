@@ -20,6 +20,7 @@ numbers marked *measured* come from that run.
 | [README](README.md) (this page)          | the project, and the map: every component, where it runs, what it costs |
 | [training.md](training.md)               | running a fine-tune, start to finish                                    |
 | [serving.md](serving.md)                 | the network volume, the loader, the two endpoints                       |
+| [evaluation.md](evaluation.md)           | `pbbi-eval`, how a reply is scored, and every adapter's results          |
 | [troubleshooting.md](troubleshooting.md) | every failure we have hit, and its fix                                  |
 
 ## Where PBBI lives in this repo
@@ -84,6 +85,7 @@ Dashed lines are planned: the analysis model has no data or config yet.
 | `pbbi-loader`                | pod (CPU)           | CA-MTL-3, on the volume     | `cpu3c`/`cpu5c`, 4 vCPU         | `make volume-fill`                                           | minutes, deletes itself |
 | `pbbi-serverless-extraction` | serverless endpoint | CA-MTL-3, on the volume     | RTX PRO 6000 Blackwell Server 96 GB | `runpod/deploy.py`                                           | permanent, scales to 0  |
 | `pbbi-serverless-analysis`   | serverless endpoint | CA-MTL-3, on the volume     | same                                | `runpod/deploy.py`                                           | permanent, scales to 0  |
+| `pbbi-eval`                  | pod (vLLM)          | any datacenter with a free GPU | H100 / H100 NVL / H200 / RTX PRO 6000, own 100 GB disk | `runpod/deploy.py` | one evaluation, then deleted |
 
 Every component is a **chart**: a directory under `runpod/` holding `chart.yaml`
 (identity, dependencies) and `values.yaml` (configuration, field names 1:1 with the
@@ -150,12 +152,16 @@ Each chart has its own gitignored `runpod/<chart>/.env` (template:
 **Never copy a `.env` onto a pod.** It happened on 2026-10-12 and put the account-wide
 RunPod key on a shared volume (and broke training — see troubleshooting).
 
-## State on 2026-10-13
+## State on 2026-10-16
 
-- **Nothing is deployed on RunPod**: no pods, endpoints, volumes or templates
-  (checked against the API).
+- **Adapter `v0.1.0` works**: served by vLLM 0.30 on `pbbi-eval`, it lifts validation
+  recall 0.405 → 0.690 and precision 0.596 → 0.806 over the base
+  ([evaluation.md](evaluation.md#results)). It is a demo model (3 training rows).
+- **Live on RunPod:** only `pbbi-volumes` (CA-MTL-3, ~$14/mo) — empty: the loader could
+  not get a CPU there. No pods, no endpoints. Template `pbbi-serverless-extraction`
+  is kept for reuse (free).
+- **Serverless has not answered a request yet** — every attempt hit GPU capacity in the
+  volume's datacenter, not a configuration error. What is and is not verified:
+  [serving.md](serving.md#verified-and-not-yet).
 - `registry/deployments.yaml` still lists `pjp-clause-extraction` as `active`. It is
   not; that entry is stale and should be retired in a PR.
-- The configuration for everything above is in the repo and passes `plan` offline.
-  What has **not** run yet against real resources is listed in
-  [serving.md](serving.md#not-yet-verified).

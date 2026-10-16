@@ -1,0 +1,51 @@
+# Rendered by runpod/deploy.py into a pod whose start command is `vllm serve`
+# (build_serve_args). ${VAR} resolves from this folder's .env only.
+
+model: scalejade/qwen-sea-lion-v4.5-27b-pbbi
+
+gpu:
+  # Any of these, whichever is free. Each holds the 55.6 GB base + fp8 KV cache.
+  types:
+    - "NVIDIA H100 80GB HBM3"
+    - "NVIDIA H100 NVL"
+    - "NVIDIA H200"
+    - "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+  count: 1
+  cloudType: SECURE
+  # no dataCenterIds: own disk, so any region with capacity
+
+disk:
+  type: volume_disk       # deleted with the pod; the weights re-download (~2-5 min)
+  volume_gb: 100          # 55.6 GB base + adapters + HF cache slack
+  container_gb: 40
+  mount_path: /workspace
+
+container:
+  image: vllm/vllm-openai:v0.30.0    # = runpod/worker-v1-vllm:v2.28.0's vLLM
+  ports:
+    - "8000/http"                    # https://<pod id>-8000.proxy.runpod.net/v1
+  env:
+    HF_TOKEN: ${HF_TOKEN}
+    HF_HOME: /workspace/hf
+    HF_HUB_ENABLE_HF_TRANSFER: "0"   # the image may not ship hf_transfer
+    # The proxy URL is public: vLLM requires this as a Bearer token on every call.
+    VLLM_API_KEY: ${VLLM_API_KEY}
+
+engine:
+  # Same engine settings as models/qwen-sea-lion-v4.5-27b-pbbi/model.config, except
+  # max_model_len: 131072 covers the app's longest call (prompt + 65,536 output)
+  # with room to spare, and keeps the KV reservation small on an 80 GB card.
+  revision: 8d32a4b9c89c9272ae8d660792182da7950955a2
+  served_model_name: scalejade/qwen-sea-lion-v4.5-27b-pbbi
+  max_model_len: 131072
+  max_num_seqs: 2
+  gpu_memory_utilization: 0.90
+  kv_cache_dtype: fp8
+  max_num_batched_tokens: 8192
+  enable_prefix_caching: true
+  enable_chunked_prefill: true
+  # {name callers send as "model": HF repo id}. vLLM pulls each from the Hub at
+  # startup; the repo's main is what it gets (v0.1.0 for the extraction LoRA).
+  max_lora_rank: 16
+  lora_modules:
+    pbbi-clause-extraction: scalejade/pbbi-clause-extraction-lora

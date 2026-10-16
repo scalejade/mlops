@@ -433,8 +433,8 @@ def preflight_pod(chart: dict) -> None:
             "reading it as auto, and the engine will not boot."
         )
 
-    if not gpu.get("type"):
-        problems.append("gpu.type is required")
+    if not gpu.get("type") and not gpu.get("types"):
+        problems.append("gpu.type (or a gpu.types list) is required")
 
     disk_type = disk.get("type")
     if disk_type not in ("volume_disk", "network_volume"):
@@ -590,6 +590,7 @@ def build_serve_args(chart: dict) -> list[str]:
     args = [v["model"]]
 
     flags = {
+        "--revision": eng.get("revision"),
         "--served-model-name": eng.get("served_model_name") or v["model"],
         "--host": "0.0.0.0",
         "--port": "8000",
@@ -615,6 +616,14 @@ def build_serve_args(chart: dict) -> list[str]:
         if eng.get(key):
             args.append(flag)
 
+    # LoRA: {served name: path or HF repo id}. max_cpu_loras >= max_loras or vLLM
+    # refuses to start (same rule deploy.py enforces for serverless).
+    loras = eng.get("lora_modules") or {}
+    if loras:
+        args += ["--enable-lora", "--max-loras", str(len(loras)), "--max-cpu-loras", str(len(loras)),
+                 "--max-lora-rank", str(eng.get("max_lora_rank", 16)),
+                 "--lora-modules", *[f"{name}={path}" for name, path in loras.items()]]
+
     return args
 
 
@@ -629,7 +638,9 @@ def build_pod_payload(chart: dict, deps: dict[str, str]) -> dict:
         "imageName": container["image"],
         "computeType": "GPU",
         "cloudType": gpu.get("cloudType", "SECURE"),
-        "gpuTypeIds": [gpu["type"]],
+        # gpu.types: any of these, whichever is free — one type alone is what left
+        # the serverless worker throttled on 2026-10-16.
+        "gpuTypeIds": list(gpu.get("types") or [gpu["type"]]),
         "gpuCount": int(gpu.get("count", 1)),
         "containerDiskInGb": int(disk.get("container_gb", 50)),
         "volumeMountPath": disk.get("mount_path", "/workspace"),
@@ -750,10 +761,13 @@ def apply_volume(chart: dict, payload: dict) -> None:
 
 
 def apply_serverless(chart: dict, template_payload: dict, endpoint_payload: dict) -> None:
+    # Create-only fields: REST v1's *UpdateInput schemas reject them with a 400
+    # ("Extra input keys provided"), so they are sent on POST and dropped on PATCH.
     existing_tpl = find_by_name("templates", chart["name"])
     if existing_tpl:
         tid = existing_tpl["id"]
-        api("PATCH", f"/templates/{tid}", template_payload)
+        api("PATCH", f"/templates/{tid}",
+            {k: v for k, v in template_payload.items() if k != "isServerless"})
         ok(f"template updated  {tid}")
     else:
         tid = api("POST", "/templates", template_payload)["id"]
@@ -764,7 +778,8 @@ def apply_serverless(chart: dict, template_payload: dict, endpoint_payload: dict
     existing_ep = find_by_name("endpoints", chart["name"])
     if existing_ep:
         eid = existing_ep["id"]
-        api("PATCH", f"/endpoints/{eid}", endpoint_payload)
+        api("PATCH", f"/endpoints/{eid}",
+            {k: v for k, v in endpoint_payload.items() if k != "computeType"})
         ok(f"endpoint updated  {eid}")
     else:
         eid = api("POST", "/endpoints", endpoint_payload)["id"]
