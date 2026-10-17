@@ -20,18 +20,22 @@ model:
   revision: 8d32a4b9c89c9272ae8d660792182da7950955a2
 
   # One row per document, never windowed (build.py --max-row-tokens 1000000).
-  # 2026-10-17 build, exact tokenizer counts (system 13,963 of each row):
-  #   train  GoPay      42,460   (answer 16,089)
-  #   eval   OVO        71,766   (answer 34,621)  <- the longest; sets this value
-  #   test   ShopeePay  64,584   (never trained on; served at 262k)
-  # 81,920 leaves ~10k for the chat template and a slightly longer next build.
+  # 2026-10-17 full build, 60 documents, exact tokenizer counts (system 13,963 of
+  # each row). Longest rows:
+  #   train  UOB Mobile Banking   89,298   <- sets this value
+  #   train  JAGO Mobile Banking  88,466
+  #   test   SEABANK MB           81,959   (never trained on; served at 262k)
+  #   eval   OVO UE Server-Based  71,766
+  # Median row ~27k (train) / ~33k (eval). 98,304 leaves ~9k for the chat template.
   # No packing at batch 1, so peak VRAM follows the actual row, not this number.
-  # UNMEASURED on the H200: the README's table says 65k+ needs 4-bit. Before the
-  # real run:  training/scripts/test.py --data preparation/data/eval.jsonl
-  #            --max-seq-length 81920 --steps 2   (OOM -> retry with --load-in-4bit)
-  max_seq_length: 81920
+  # Measured on the H200 (2026-10-17, v0.1.1): a 42k train row peaked at 74 GB of
+  # 141; the 89k rows are UNMEASURED (estimate ~100-110 GB). Before the real run:
+  #   training/scripts/test.py --data preparation/data/train.jsonl --max-seq-length 98304 --steps 2
+  # On OOM, window the longest rows (build.py --max-row-tokens 80000) rather than
+  # 4-bit: QLoRA is reported to degrade on this hybrid-attention architecture.
+  max_seq_length: 98304
 
-  load_in_4bit: false       # 55.56 GB of weights on 141 GB — 4-bit is the long-context fallback
+  load_in_4bit: false       # 55.56 GB of weights on 141 GB; see above before turning this on
   dtype: bfloat16           # qwen3_5's gated-deltanet layers NaN their grads in fp16
   text_only: true           # skip the vision tower: ~2.4 GB less VRAM
   chat_template: qwen-3     # names the response markers only; does NOT replace the repo's template
@@ -61,26 +65,28 @@ data:
   train_on_responses_only: true     # loss on the assistant turn only
 
 train:
-  # Sized for the 2026-10-17 build: ONE train row (GoPay, 16k answer tokens of
-  # loss). One row = one optimiser step, so 3 epochs = 3 steps in total. Warmup
-  # is 0: a 0.1 ratio rounds up to 1 step at lr 0, a third of the run wasted.
-  # When most of the ~60 folders are Train there will be dozens of rows: go back
-  # to gradient_accumulation_steps 2-4, warmup_ratio 0.1, eval_steps 10, save_steps 20.
-  # Re-check against build-report.json's train row count before each run.
+  # Sized for the 2026-10-17 full build: 31 train rows (3,206 clauses, ~1.0M
+  # tokens), 12 eval rows. Effective batch 2 -> 16 optimiser steps an epoch,
+  # 48 over 3 epochs; warmup 0.1 = 5 steps. Eval every 8 steps = 6 passes over
+  # the 12 eval rows (~3 min each). Saved once an epoch.
+  # Time on the H200 (step on a 42k row measured at 96 s): ~2 h of steps +
+  # ~20 min of eval + ~10 min load, so ~2.5 h, ~$13 at $5.29/hr.
+  # (A 1-row run, like v0.1.1, wants gradient_accumulation_steps 1, warmup 0,
+  # eval_steps 1, save_steps 1.) Re-check against build-report.json before each run.
   per_device_train_batch_size: 1
-  gradient_accumulation_steps: 1
+  gradient_accumulation_steps: 2
   num_train_epochs: 3
   max_steps: -1
   learning_rate: 2.0e-4
-  warmup_ratio: 0.0
+  warmup_ratio: 0.1
   lr_scheduler_type: linear
   optim: adamw_torch_fused
   weight_decay: 0.01
   logging_steps: 1
   save_strategy: steps
-  save_steps: 1             # every step: there are only 3
+  save_steps: 16            # once an epoch
   save_total_limit: 3
-  eval_steps: 1             # at 10 it never fires in a 3-step run: no eval loss at all
+  eval_steps: 8             # twice an epoch
   per_device_eval_batch_size: 1
   packing: false            # packing corrupts loss masking on chat data
   seed: 3407

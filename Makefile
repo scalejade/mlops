@@ -101,8 +101,8 @@ setup:  ## once: create .venv with the laptop-side deps (build, tests, pod.py)
 	@command -v pdftotext >/dev/null || echo "  !! install pdftotext:  brew install poppler"
 	@echo "  ready — targets use .venv/bin/python from now on"
 
-data:  ## build preparation/data/ from preparation/raw/ (exact token counts)
-	@$(DOTENV); $(PY) preparation/build.py --tokenizer "$(BASE)@$(REVISION)"
+data:  ## build preparation/data/ from preparation/raw/ (exact token counts, one row per document)
+	@$(DOTENV); $(PY) preparation/build.py --tokenizer "$(BASE)@$(REVISION)" --max-row-tokens 1000000
 
 test:  ## offline tests of the local copy of the app's extraction call and the evaluation
 	$(PY) -m unittest preparation/test_app_request.py preparation/test_evaluate.py
