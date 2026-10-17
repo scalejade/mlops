@@ -44,9 +44,29 @@ still needs one real request once it has a GPU.
 python runpod/deploy.py plan   pbbi-eval      # GPU list, vllm serve command, nothing sent
 python runpod/deploy.py apply  pbbi-eval      # BILLING STARTS; prints the pod URL
 #   wait until GET <url>/v1/models lists every adapter (~15 min: 55.6 GB download + load)
-#   send the validation rows to each model name and score them (below)
+make evaluate ARGS="--dry-run"                # resolves the pod, sends nothing
+make evaluate                                 # test.jsonl to every served model, scored
 python runpod/deploy.py delete pbbi-eval      # BILLING STOPS — do not leave it running
 ```
+
+`make evaluate` is `preparation/evaluate.py --target pbbi-eval`. It finds the pod by
+name on the account, sends each row to each model (base and adapters, from
+`GET /models`), and prints one line per reply and a table per model. Everything,
+raw replies included, goes to `preparation/data/scores/<UTC time>/` (gitignored:
+the replies quote the contract). Common variations:
+
+```bash
+make evaluate ARGS="--model pbbi-clause-extraction"            # the adapter only
+make evaluate ARGS="--data preparation/data/eval.jsonl"         # the validation split
+make evaluate TARGET=pbbi-serverless-extraction ARGS="--model pbbi-clause-extraction"
+python preparation/evaluate.py --url <base>/v1 --api-key-env <VAR>   # anything else
+python preparation/evaluate.py --check        # labels vs themselves, offline
+```
+
+The serverless target is the real endpoint, cold starts and all: use it once it has
+a GPU, as the last check before the app is pointed at an adapter. A dry run never
+contacts the endpoint (any request can wake a billed worker). Exit code 1 if any
+request failed outright.
 
 Secrets are in `runpod/pbbi-eval/.env` (template beside it): `HF_TOKEN` (read) and
 `VLLM_API_KEY` — a long random string, because the proxy URL is public.
@@ -59,8 +79,8 @@ pushed, against the numbers recorded below for the old one.
 
 ## How a reply is scored
 
-The same rules as training's quality check (`training/scripts/train.py`), so the
-numbers are comparable with the W&B `quality/` panels.
+The same rules as training's quality check — both import `preparation/score.py` —
+so the numbers are comparable with the W&B `quality/` panels.
 
 1. **Data: the validation split** (`preparation/data/eval.jsonl`), documents marked
    `Split : Validation` — never trained on. Each row is the app's request plus
@@ -120,11 +140,14 @@ the demo adapter trained on 3 rows of one other document (GOPAY).
   training. Two rows of one document show the fine-tune changes behaviour; they do
   not estimate production quality — that needs the full-data run and the test split.
 
+### 2026-10-17 — `v0.1.1`: not evaluated yet
+
+Trained on whole documents (1 row, GOPAY, 3 steps, `max_seq_length` 81,920); eval
+loss on OVO 0.1018 → 0.0957. No quality check ran. Next: `make evaluate` on
+`test.jsonl` (SHOPEEPAY, 211 labelled clauses, ~30k-token answer) — check
+`finish` first, a cut-off reply is the likely failure.
+
 ## Not built yet
 
-- The scoring script used above lives outside the repo; it belongs in
-  `preparation/` or `training/scripts/` (it needs no GPU — only `requests` and
-  `app_request.py`).
-- Scoring `preparation/data/test.jsonl` — the gate before a deploy. Its document is
-  ~64k tokens and Legal's answer ~40k: check `finish` first, a cut-off reply is the
-  likely failure.
+- Comparing two versions of the same adapter repo on one pod (vLLM pulls `main`
+  only; see above).

@@ -45,7 +45,8 @@ engine:
   enable_prefix_caching: true
   enable_chunked_prefill: true
   # {name callers send as "model": HF repo id}. vLLM pulls each from the Hub at
-  # startup; the repo's main is what it gets (v0.1.0 for the extraction LoRA).
+  # startup; the repo's main is what it gets — the latest push (v0.1.1 since
+  # 2026-10-17: whole-document rows, trained at 81,920).
   max_lora_rank: 16
   lora_modules:
     pbbi-clause-extraction: scalejade/pbbi-clause-extraction-lora

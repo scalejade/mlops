@@ -83,7 +83,7 @@ POD_ADDR = t=$$($(POD) ssh-target) || exit 1; set -- $$t; HOST=$$1; PORT=$$2
 # .env into the environment, for the targets that need HF_TOKEN locally.
 DOTENV   = if [ -f .env ]; then set -a; . ./.env; set +a; fi
 
-.PHONY: help setup data test wandb-example \
+.PHONY: help setup data test evaluate wandb-example \
         pod-gpus pod-plan pod-up pod-down pod-status pod-ssh pod-start pod-stop pod-delete \
         volume-fill \
         train train-push-code train-push-data train-pull-model train-check \
@@ -104,8 +104,12 @@ setup:  ## once: create .venv with the laptop-side deps (build, tests, pod.py)
 data:  ## build preparation/data/ from preparation/raw/ (exact token counts)
 	@$(DOTENV); $(PY) preparation/build.py --tokenizer "$(BASE)@$(REVISION)"
 
-test:  ## offline tests of the local copy of the app's extraction call
-	$(PY) -m unittest preparation/test_app_request.py
+test:  ## offline tests of the local copy of the app's extraction call and the evaluation
+	$(PY) -m unittest preparation/test_app_request.py preparation/test_evaluate.py
+
+TARGET ?= pbbi-eval
+evaluate:  ## score a deployed model on test.jsonl: make evaluate [TARGET=<chart>] [ARGS="--model ... --rows ..."]
+	@$(PY) preparation/evaluate.py --target $(TARGET) $(ARGS)
 
 wandb-example:  ## log a SIMULATED training run to W&B (<project>-example), no GPU
 	$(PY) training/scripts/wandb_example.py $(CONFIG)

@@ -573,52 +573,8 @@ class RunMetrics(TrainerCallback):
         })
 
 
-CLAUSE_MATCH = 0.8   # word-set overlap at which a predicted clause counts as a labelled one
-
-
-def clause_words(app, clause) -> frozenset:
-    """A clause's text as the set of its words, normalised the way the app keys pasal."""
-    return frozenset(app.normalize_clause_name(clause.clause_text).split())
-
-
-def match_clauses(app, predicted: list, labelled: list) -> int:
-    """How many labelled clauses the prediction found, one-to-one.
-
-    A predicted clause matches a labelled one when their word sets overlap by at
-    least CLAUSE_MATCH (Jaccard). Word sets, not exact strings: the model may
-    unwrap a line or fix a space differently, and that is not a missed clause.
-    Pairs are taken closest-first across both lists, so a missing clause cannot
-    claim the match of a near-identical sibling that is present.
-    """
-    pred = [clause_words(app, c) for c in predicted]
-    gold = [clause_words(app, c) for c in labelled]
-    pairs = []
-    for i, g in enumerate(gold):
-        for j, w in enumerate(pred):
-            union = len(g | w)
-            score = len(g & w) / union if union else 1.0
-            if score >= CLAUSE_MATCH:
-                pairs.append((score, i, j))
-    pairs.sort(key=lambda x: (-x[0], x[1], x[2]))
-    used_gold, used_pred = set(), set()
-    for _, i, j in pairs:
-        if i not in used_gold and j not in used_pred:
-            used_gold.add(i)
-            used_pred.add(j)
-    return len(used_gold)
-
-
-def score_reply(app, reply: str, labels: str) -> dict:
-    """Score one generated reply against the row's labelled answer, through the app's
-    own steps 6-7 (parse_reply, finalize): what the app would have kept."""
-    gold, _ = app.finalize(app.parse_reply(labels))
-    try:
-        pred, _ = app.finalize(app.parse_reply(reply))
-        valid = True
-    except app.AppError:
-        pred, valid = [], False
-    found = match_clauses(app, pred, gold)
-    return {"json_valid": valid, "labelled": len(gold), "predicted": len(pred), "matched": found}
+# Scoring a reply (clause matching, recall/precision) is preparation/score.py,
+# shared with preparation/evaluate.py so training and endpoint numbers agree.
 
 
 class QualityCheck(TrainerCallback):
@@ -643,9 +599,9 @@ class QualityCheck(TrainerCallback):
     def __init__(self, rows: list[dict], meta: list[dict] | None, tokenizer,
                  when: str, max_new_tokens: int):
         sys.path.insert(0, str(REPO / "preparation"))
-        import app_request
+        import score
         import wandb
-        self.app, self.wandb, self.tok = app_request, wandb, tokenizer
+        self.score, self.wandb, self.tok = score, wandb, tokenizer
         self.rows, self.meta = rows, meta
         self.when, self.max_new_tokens = when, max_new_tokens
         self.done_at: int | None = None
@@ -688,8 +644,8 @@ class QualityCheck(TrainerCallback):
                                          do_sample=False, use_cache=True)
                 new = out[0][inputs["input_ids"].shape[1]:]
                 seconds = time.time() - started
-                r = score_reply(self.app, self.tok.decode(new, skip_special_tokens=True),
-                                msgs[-1]["content"])
+                r = self.score.score_reply(self.tok.decode(new, skip_special_tokens=True),
+                                           msgs[-1]["content"])
                 r |= {"finished": len(new) < self.max_new_tokens,
                       "output_tokens": len(new), "seconds": seconds}
                 results.append(r)
@@ -713,19 +669,15 @@ class QualityCheck(TrainerCallback):
             model.train()
         if not results:
             return
-        labelled = sum(r["labelled"] for r in results)
-        predicted = sum(r["predicted"] for r in results)
-        matched = sum(r["matched"] for r in results)
-        recall = matched / labelled if labelled else 0.0
-        precision = matched / predicted if predicted else 0.0
+        s = self.score.summarize(results)
+        recall, precision = s["recall"], s["precision"]
         metrics = {
-            "quality/json_valid": sum(r["json_valid"] for r in results) / len(results),
+            "quality/json_valid": s["json_valid"],
             "quality/finished": sum(r["finished"] for r in results) / len(results),
             "quality/clause_recall": recall,
             "quality/clause_precision": precision,
-            "quality/clause_f1": 2 * recall * precision / (recall + precision)
-                                 if recall + precision else 0.0,
-            "quality/clause_count_ratio": predicted / labelled if labelled else 0.0,
+            "quality/clause_f1": s["f1"],
+            "quality/clause_count_ratio": s["count_ratio"],
             "quality/output_tokens": sum(r["output_tokens"] for r in results) / len(results),
             "quality/seconds": sum(r["seconds"] for r in results),
         }
