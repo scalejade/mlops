@@ -3,8 +3,10 @@
 
 cpu:
   # REST v1 cpuFlavorIds. "c" = compute-optimized (2 GB RAM per vCPU), plenty for
-  # a download. RunPod takes whichever is available, in this order.
-  flavors: [cpu3c, cpu5c]
+  # a download; "g" general and "m" memory-optimized are fallbacks, since any CPU
+  # can download and CA-MTL-3 had no c-flavors on 2026-10-17. RunPod takes
+  # whichever is available, in this order.
+  flavors: [cpu3c, cpu5c, cpu3g, cpu5g, cpu3m, cpu5m]
   vcpus: 4                # parallel shard downloads; hf_transfer uses them all
 
   # Network volumes exist on Secure Cloud only.
