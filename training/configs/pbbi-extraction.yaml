@@ -105,10 +105,15 @@ tracking:
   # Extraction quality (training/metrics.md, "quality/"): generate the reply for the
   # first quality_rows validation rows and score it with the app's own parser,
   # preparation/app_request.py — JSON valid, finished, clause recall / precision.
-  # The only metric about the product, not the optimiser. Costs H200 time: the one
-  # eval row (OVO) is a 34,621-token answer, ~10-15 min per check, so 3 epochs is
-  # ~30-45 min (~$3-4). epoch | end | never.
-  quality_check: epoch
+  # The only metric about the product, not the optimiser — but OPTIONAL: off by
+  # default, opt in per run. On whole documents it is the most expensive part of
+  # the run: OVO's 34,621-token answer took 15-20+ min per check on 2026-10-17
+  # (HF generate, not vLLM), vs ~2 min per training step. Score the adapter on
+  # test.jsonl afterwards instead (runpod/pbbi-eval).
+  #   never  off (default)
+  #   end    once, after the last step — the one to use with few steps
+  #   epoch  after every epoch — worth it once there are dozens of train rows
+  quality_check: never
   quality_rows: 2
   # Must exceed the longest eval answer (OVO, 34,621) or the check scores it
   # unfinished. The endpoint's request_defaults.max_tokens (24,576) is now BELOW
