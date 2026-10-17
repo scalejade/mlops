@@ -1,0 +1,19 @@
+row,contract,penyelenggara,produk,labelled,v0.1.3_returned,v0.1.3_matched,v0.1.3_recall,v0.1.3_precision,v0.1.3_f1,gpt-4.1-mini_t0_returned,gpt-4.1-mini_t0_matched,gpt-4.1-mini_t0_recall,gpt-4.1-mini_t0_precision,gpt-4.1-mini_t0_f1,gpt-4.1-mini_t1_f1,higher_f1_at_t0
+5,JATENG - Kartu Debit,Utama / BPD,Kartu Debit,15,15,15,1.0,1.0,1.0,15,15,1.0,1.0,1.0,1.0,tie
+7,MUAMALAT - Internet Banking,Utama / Swasta Nasional,Internet Banking,46,46,46,1.0,1.0,1.0,35,32,0.696,0.914,0.79,0.79,v0.1.3
+0,BCA - Kartu Debit,Utama / Swasta Nasional,Kartu Debit,87,80,79,0.908,0.988,0.946,57,50,0.575,0.877,0.694,0.946,v0.1.3
+14,SINARMAS - Uang Elektronik Server-Based,Utama / Swasta Nasional,Uang Elektronik Server-Based,49,49,44,0.898,0.898,0.898,14,4,0.082,0.286,0.127,0.127,v0.1.3
+6,MANDIRI - Mobile Banking,Utama / BUMN,Mobile Banking,98,102,88,0.898,0.863,0.88,68,53,0.541,0.779,0.639,0.46,v0.1.3
+8,NAGARI - Mobile Banking,BPD,Mobile Banking,44,44,37,0.841,0.841,0.841,32,27,0.614,0.844,0.711,0.753,v0.1.3
+3,BRI - Uang Elektronik Chip-Based,Utama / BUMN,Uang Elektronik Chip-Based,27,33,25,0.926,0.758,0.833,31,25,0.926,0.806,0.862,0.642,gpt-4.1-mini
+16,SULTRA - Kartu Debit,BPD,Kartu Debit,18,18,15,0.833,0.833,0.833,18,15,0.833,0.833,0.833,0.824,tie
+11,OY - Payment Gateway,Swasta Nasional,Payment Gateway,89,86,67,0.753,0.779,0.766,32,20,0.225,0.625,0.331,0.331,v0.1.3
+12,SEABANK - Mobile Banking,Utama / Swasta Nasional,Mobile Banking,358,290,247,0.69,0.852,0.762,66,42,0.117,0.636,0.198,0.198,v0.1.3
+13,SHOPEEPAY - Uang Elektronik Server-Based,Utama / LSB,Uang Elektronik Server-Based,211,147,130,0.616,0.884,0.726,84,57,0.27,0.679,0.386,0.392,v0.1.3
+4,DBS - Mobile Banking,Utama / Multinational,Mobile Banking,262,207,168,0.641,0.812,0.716,162,95,0.363,0.586,0.448,0.575,v0.1.3
+15,SMBC - Kartu Kredit,Utama / Swasta Nasional,Kartu Kredit,172,197,127,0.738,0.645,0.688,107,45,0.262,0.421,0.323,0.618,v0.1.3
+10,OCBC - Kartu Kredit,Utama / Multinational,Kartu Kredit,233,154,131,0.562,0.851,0.677,44,19,0.082,0.432,0.137,0.124,v0.1.3
+1,BJB - Mobile Banking,Utama / BPD,Mobile Banking,110,116,69,0.627,0.595,0.611,19,4,0.036,0.211,0.062,0.062,v0.1.3
+2,BOC - Mobile Banking & Internet Banking,Utama / Multinational,Mobile Banking & Internet Banking,79,41,25,0.316,0.61,0.417,33,18,0.228,0.545,0.321,0.243,v0.1.3
+9,OCBC - Internet Banking,Utama / Multinational,Internet Banking,176,116,52,0.295,0.448,0.356,112,66,0.375,0.589,0.458,0.747,gpt-4.1-mini
+ALL,All 17 test contracts,,,2074,1741,1365,0.658,0.784,0.716,929,587,0.283,0.632,0.391,0.47,v0.1.3
