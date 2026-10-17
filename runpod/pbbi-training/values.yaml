@@ -83,6 +83,9 @@ container:
     # Fragmentation is what kills a long-context run at 90% VRAM, not total size.
     PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
     TOKENIZERS_PARALLELISM: "false"
+    # Unsloth's hybrid packing raises at step 0 on torch 2.8 + fla 0.4.2 (no
+    # varlen kernels); packing is off anyway. See training/run.sh.
+    UNSLOTH_EXPERIMENTAL_HYBRID_PACKING: "0"
     PUBLIC_KEY: ${SSH_PUBLIC_KEY:-}        # how ssh gets in; set it before apply
 
 # Not sent to RunPod. Read by `plan` so the number is on screen before something
