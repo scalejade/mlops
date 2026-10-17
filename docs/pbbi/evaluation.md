@@ -176,6 +176,28 @@ loss on OVO 0.1018 → 0.0957. No quality check ran. Next: `make evaluate` on
 `test.jsonl` (SHOPEEPAY, 211 labelled clauses, ~30k-token answer) — check
 `finish` first, a cut-off reply is the likely failure.
 
+### 2026-10-17 — `v0.1.2` and `v0.1.3` on the test split, temperature 0
+
+`pbbi-eval` on an H200 · all 17 rows of `test.jsonl` (2,074 labelled clauses) ·
+`--temperature 0` (the app sends none; vLLM then samples at the base model's 1.0).
+Full write-up: [reports/pbbi-extraction-eval-v0.1.3.md](reports/pbbi-extraction-eval-v0.1.3.md).
+
+| | `v0.1.2`, no temperature | `v0.1.2`, temperature 0 | **`v0.1.3`**, temperature 0 |
+|---|---|---|---|
+| Recall | 0.659 | 0.645 | **0.658** |
+| Precision | 0.739 | **0.789** | 0.784 |
+| F1 | 0.696 | 0.709 | **0.716** |
+| Finished, valid JSON | 17/17, 17/17 | 17/17, 17/17 | 17/17, 17/17 |
+
+**Read:**
+
+- **Temperature 0 is worth sending:** +0.013 F1, more precision, repeatable output.
+- **v0.1.3** is 8 validation contracts moved to training (39 train / 4 eval);
+  test unchanged, hyperparameters unchanged, best checkpoint step 20 again.
+  - +0.007 F1: 2 contracts better (DBS +0.112, BJB +0.057), 6 worse, 9 the same.
+  - It is the `stable` tag and the serving pin.
+- **OCBC Internet Banking stays at ~0.36:** a labelling question, not a data-size one.
+
 ## Not built yet
 
 - Comparing two versions of the same adapter repo on one pod (vLLM pulls `main`
