@@ -911,6 +911,11 @@ def main() -> None:
         eval_strategy="steps" if eval_ds is not None else "no",
         eval_steps=int(t.get("eval_steps", 100)),
         per_device_eval_batch_size=int(t.get("per_device_eval_batch_size", 1)),
+        # load_best: the adapter saved and pushed is the checkpoint with the lowest
+        # eval loss, not the last step. Needs save_steps a multiple of eval_steps.
+        **({"load_best_model_at_end": True, "metric_for_best_model": "eval_loss",
+            "greater_is_better": False}
+           if t.get("load_best") and eval_ds is not None else {}),
         bf16=is_bfloat16_supported(),
         fp16=not is_bfloat16_supported(),
         report_to=report_to,

@@ -66,27 +66,32 @@ data:
 
 train:
   # Sized for the 2026-10-17 full build: 31 train rows (3,206 clauses, ~1.0M
-  # tokens), 12 eval rows. Effective batch 2 -> 16 optimiser steps an epoch,
-  # 48 over 3 epochs; warmup 0.1 = 5 steps. Eval every 8 steps = 6 passes over
-  # the 12 eval rows (~3 min each). Saved once an epoch.
-  # Time on the H200 (step on a 42k row measured at 96 s): ~2 h of steps +
-  # ~20 min of eval + ~10 min load, so ~2.5 h, ~$13 at $5.29/hr.
+  # tokens), 12 eval rows. Effective batch 2 -> 16 optimiser steps an epoch.
+  #
+  # 2026-10-17, lr 2e-4 x 3 epochs OVERFIT inside epoch 1: train loss 0.07 ->
+  # 1e-5 by step 11, eval loss 0.165 (step 8) -> 0.232 (step 16); stopped at
+  # step 16, nothing pushed (log: /workspace/train.lr2e-4.log on the pod). Each
+  # step is ~48k answer tokens, so a step at 2e-4 moves the adapter a long way.
+  # Now: lr 5e-5, 2 epochs (32 steps, warmup 4), eval + save every 4 steps, and
+  # load_best pushes the lowest-eval-loss checkpoint, not the last one.
+  # Measured: ~50-70 s a step, ~60 s an eval pass -> ~45 min, ~$4.
   # (A 1-row run, like v0.1.1, wants gradient_accumulation_steps 1, warmup 0,
   # eval_steps 1, save_steps 1.) Re-check against build-report.json before each run.
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 2
-  num_train_epochs: 3
+  num_train_epochs: 2
   max_steps: -1
-  learning_rate: 2.0e-4
+  learning_rate: 5.0e-5
   warmup_ratio: 0.1
+  load_best: true
   lr_scheduler_type: linear
   optim: adamw_torch_fused
   weight_decay: 0.01
   logging_steps: 1
   save_strategy: steps
-  save_steps: 16            # once an epoch
-  save_total_limit: 3
-  eval_steps: 8             # twice an epoch
+  save_steps: 4             # with every eval, so load_best can pick any of them
+  save_total_limit: 2       # the best and the latest (load_best keeps the best)
+  eval_steps: 4             # 4 times an epoch: catches the turn before it overfits
   per_device_eval_batch_size: 1
   packing: false            # packing corrupts loss masking on chat data
   seed: 3407
