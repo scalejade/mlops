@@ -2,7 +2,7 @@
 # The config IS the experiment record: train.py takes no hyperparameter flags,
 # so anything not written here did not happen and cannot be reproduced.
 #
-#   python preparation/build.py --tokenizer scalejade/qwen-sea-lion-v4.5-27b-pbbi
+#   python preparation/build.py --tokenizer scalejade/qwen-sea-lion-v4.5-27b-pbbi --max-row-tokens 1000000
 #   python training/scripts/train.py training/configs/pbbi-extraction.yaml --dry-run
 #   python training/scripts/train.py training/configs/pbbi-extraction.yaml
 #
@@ -19,12 +19,17 @@ model:
   base: scalejade/qwen-sea-lion-v4.5-27b-pbbi
   revision: 8d32a4b9c89c9272ae8d660792182da7950955a2
 
-  # From build.py's report on the 2026-10-10 build, exact tokenizer counts:
-  # longest row 29,900 tokens (system prompt 13,963 of it), median 20,817.
-  # build.py caps rows at --max-row-tokens 30,000, which leaves room for the chat
-  # template. The README's H200 table calls 32k "tight" at batch 1 — watch peak
-  # VRAM in the first steps; the order to reach for on OOM is in training/README.md.
-  max_seq_length: 32768
+  # One row per document, never windowed (build.py --max-row-tokens 1000000).
+  # 2026-10-17 build, exact tokenizer counts (system 13,963 of each row):
+  #   train  GoPay      42,460   (answer 16,089)
+  #   eval   OVO        71,766   (answer 34,621)  <- the longest; sets this value
+  #   test   ShopeePay  64,584   (never trained on; served at 262k)
+  # 81,920 leaves ~10k for the chat template and a slightly longer next build.
+  # No packing at batch 1, so peak VRAM follows the actual row, not this number.
+  # UNMEASURED on the H200: the README's table says 65k+ needs 4-bit. Before the
+  # real run:  training/scripts/test.py --data preparation/data/eval.jsonl
+  #            --max-seq-length 81920 --steps 2   (OOM -> retry with --load-in-4bit)
+  max_seq_length: 81920
 
   load_in_4bit: false       # 55.56 GB of weights on 141 GB — 4-bit is the long-context fallback
   dtype: bfloat16           # qwen3_5's gated-deltanet layers NaN their grads in fp16
@@ -56,26 +61,26 @@ data:
   train_on_responses_only: true     # loss on the assistant turn only
 
 train:
-  # Sized for a few dozen long rows (the 2026-10-10 ten-document build gave 39,
-  # ~6k answer tokens of loss each at the median). Effective batch 2 -> about
-  # rows/2 optimiser steps an epoch. Aim for 50+ steps in total, so warmup is
-  # more than a step or two. Once most of the ~60 folders are Train there will
-  # be a couple of hundred rows, and gradient_accumulation_steps 4 fits better.
+  # Sized for the 2026-10-17 build: ONE train row (GoPay, 16k answer tokens of
+  # loss). One row = one optimiser step, so 3 epochs = 3 steps in total. Warmup
+  # is 0: a 0.1 ratio rounds up to 1 step at lr 0, a third of the run wasted.
+  # When most of the ~60 folders are Train there will be dozens of rows: go back
+  # to gradient_accumulation_steps 2-4, warmup_ratio 0.1, eval_steps 10, save_steps 20.
   # Re-check against build-report.json's train row count before each run.
   per_device_train_batch_size: 1
-  gradient_accumulation_steps: 2
+  gradient_accumulation_steps: 1
   num_train_epochs: 3
   max_steps: -1
   learning_rate: 2.0e-4
-  warmup_ratio: 0.1
+  warmup_ratio: 0.0
   lr_scheduler_type: linear
   optim: adamw_torch_fused
   weight_decay: 0.01
   logging_steps: 1
   save_strategy: steps
-  save_steps: 20
+  save_steps: 1             # every step: there are only 3
   save_total_limit: 3
-  eval_steps: 10
+  eval_steps: 1             # at 10 it never fires in a 3-step run: no eval loss at all
   per_device_eval_batch_size: 1
   packing: false            # packing corrupts loss masking on chat data
   seed: 3407
@@ -100,11 +105,15 @@ tracking:
   # Extraction quality (training/metrics.md, "quality/"): generate the reply for the
   # first quality_rows validation rows and score it with the app's own parser,
   # preparation/app_request.py — JSON valid, finished, clause recall / precision.
-  # The only metric about the product, not the optimiser. Costs H200 time: ~3-6 min
-  # per row, so 2 rows x 3 epochs is ~20-35 min (~$2-3). epoch | end | never.
+  # The only metric about the product, not the optimiser. Costs H200 time: the one
+  # eval row (OVO) is a 34,621-token answer, ~10-15 min per check, so 3 epochs is
+  # ~30-45 min (~$3-4). epoch | end | never.
   quality_check: epoch
   quality_rows: 2
-  quality_max_new_tokens: 24576   # the endpoint's request_defaults.max_tokens
+  # Must exceed the longest eval answer (OVO, 34,621) or the check scores it
+  # unfinished. The endpoint's request_defaults.max_tokens (24,576) is now BELOW
+  # what whole documents need (ShopeePay 30,115, OVO 34,621) and must follow.
+  quality_max_new_tokens: 40960
 
   # eval/loss split by these annotation.txt fields, plus an eval/rows table of every
   # validation row's loss. Free: it reuses the losses the eval pass computes anyway.
