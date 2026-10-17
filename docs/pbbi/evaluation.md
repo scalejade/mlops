@@ -169,12 +169,25 @@ the demo adapter trained on 3 rows of one other document (GOPAY).
   training. Two rows of one document show the fine-tune changes behaviour; they do
   not estimate production quality — that needs the full-data run and the test split.
 
-### 2026-10-17 — `v0.1.1`: not evaluated yet
+### 2026-10-17 — `v0.1.1` on one whole document (OVO), superseded
 
 Trained on whole documents (1 row, GOPAY, 3 steps, `max_seq_length` 81,920); eval
-loss on OVO 0.1018 → 0.0957. No quality check ran. Next: `make evaluate` on
-`test.jsonl` (SHOPEEPAY, 211 labelled clauses, ~30k-token answer) — check
-`finish` first, a cut-off reply is the likely failure.
+loss on OVO 0.1018 → 0.0957. Scored by hand on `pbbi-eval` (RTX PRO 6000) with the
+app's real call on the whole OVO PDF (305 labelled clauses), sampled at the base
+model's temperature 1.0:
+
+| Recall | Precision | F1 | Lenient recall | Reply |
+|---|---|---|---|---|
+| 0.784 (239/305) | 0.693 (239/345) | 0.735 | 0.931 | 47,896 tokens, `stop`, 33 min at 24 tok/s |
+
+- The content was there: with the lenient match (≥ 90% of a clause's words inside
+  one returned clause) recall was 0.931. The strict gap came from **section headings
+  copied into `clause_text`** — 326 of 345 clauses, against 0 in the labels and in
+  the training data — and from `DEFINISI` split one clause per term where Legal's
+  OVO labels group ranges (`|2-3`, `|6-8`).
+- One contract that is also in the validation split, so it is not comparable with
+  the test-split numbers below. Superseded by `v0.1.2`, which no longer copies the
+  headings (17 of 1,849 clauses on the test split).
 
 ### 2026-10-17 — `v0.1.2` and `v0.1.3` on the test split, temperature 0
 
