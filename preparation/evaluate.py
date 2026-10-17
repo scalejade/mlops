@@ -6,6 +6,7 @@ the app does, parse the replies as the app does, and count the clauses it got ri
     python preparation/evaluate.py --target pbbi-eval --dry-run          # what would be sent
     python preparation/evaluate.py --target pbbi-eval                    # every model it serves
     python preparation/evaluate.py --target pbbi-serverless-extraction --model pbbi-clause-extraction
+    python preparation/evaluate.py --target openai                       # gpt-4.1-mini on OpenAI
     python preparation/evaluate.py --url https://<pod>-8000.proxy.runpod.net/v1 \\
                                    --api-key-env VLLM_API_KEY --data preparation/data/eval.jsonl
     python preparation/evaluate.py --check                               # labels vs labels, offline
@@ -15,6 +16,10 @@ TARGETS -- a chart under runpod/, looked up by name on the RunPod account
                                                key: VLLM_API_KEY in runpod/<chart>/.env
     serverless  (pbbi-serverless-extraction)   https://api.runpod.ai/v2/<id>/openai/v1
                                                key: RUNPOD_API_KEY in the root .env
+    hosted      (openai)                       https://api.openai.com/v1
+                                               key: OPENAI_API_KEY in the root .env
+                                               model gpt-4.1-mini, max_tokens 32,768 unless
+                                               --model / --max-tokens say otherwise
     --url / --api-key-env reach anything else that speaks OpenAI chat completions.
 
 MODELS
@@ -25,8 +30,13 @@ MODELS
 THE REQUEST IS THE APP'S (app_request.request_body): the row's system prompt and
 "DOCUMENT:\\n" + text, max_tokens 65,536, response_format json_object, no
 temperature. Only stream: true is added, so a 20-minute reply cannot hit a proxy
-timeout. A reply cut at max_tokens (finish_reason "length") is a failure, as in
-the app: valid=False, 0 clauses.
+timeout. --temperature adds a temperature (e.g. 0, greedy) to test a change to
+the app's request; without it none is sent, so vLLM applies the model's
+generation_config defaults (temperature 1.0). A reply cut at max_tokens (finish_reason "length") is a failure, as in
+the app: valid=False, 0 clauses. OpenAI refuses max_tokens above the model's own
+output cap (32,768 for gpt-4.1-mini), so the openai target sends that instead, and
+a document whose answer is longer ends "length". A 429 or a 5xx is retried, up to
+4 times.
 
 SCORING IS TRAINING'S (preparation/score.py): parse_reply + finalize on both the
 reply and Legal's labels, then clauses matched one-to-one at >= 0.8 word overlap.
@@ -66,6 +76,16 @@ import score  # noqa: E402
 DEFAULT_DATA = HERE / "data" / "test.jsonl"
 TIMEOUT_S = 1800          # per socket read: covers a serverless cold start + a 64k prefill
 USER_AGENT = "scalejade-mlops-evaluate/1.0"   # Cloudflare 403s urllib's default
+RETRY_STATUS = {429, 500, 502, 503}           # a rate limit or a passing overload: nothing generated
+RETRIES = 4
+
+# Hosted APIs, reached directly rather than through a runpod/ chart. The key comes
+# from the root .env. max_tokens is the API's own output cap: OpenAI rejects the
+# app's 65,536 outright, rather than stopping at its cap.
+HOSTED = {
+    "openai": {"url": "https://api.openai.com/v1", "key": "OPENAI_API_KEY",
+               "model": "gpt-4.1-mini", "max_tokens": 32_768},
+}
 
 
 class Fail(Exception):
@@ -75,9 +95,18 @@ class Fail(Exception):
 # ------------------------------------------------------------------ target
 
 def resolve_target(chart_name: str) -> tuple[str, str]:
-    """A runpod/ chart name -> (base URL, API key), from what is live on the account."""
+    """A runpod/ chart name -> (base URL, API key), from what is live on the account.
+    A HOSTED name -> its URL and the key from the root .env."""
     sys.path.insert(0, str(REPO / "runpod"))
     import deploy
+    if chart_name in HOSTED:
+        hosted = HOSTED[chart_name]
+        if (REPO / ".env").exists():
+            deploy.load_dotenv()
+        key = os.environ.get(hosted["key"], "")
+        if not key:
+            raise Fail(f"{hosted['key']} is not set — add it to the root .env (see .env.example)")
+        return hosted["url"], key
     try:
         deploy.load_dotenv()
         chart = deploy.load_chart(chart_name)
@@ -155,18 +184,38 @@ def stream_completion(base: str, key: str, body: dict) -> dict:
             "tok_per_s": round(tokens / gen, 1) if gen > 0 else 0.0}
 
 
-def run_one(base: str, key: str, model: str, i: int, row: dict, max_tokens: int) -> dict:
+def retry_wait(e: urllib.error.HTTPError, attempt: int) -> float:
+    """The server's Retry-After when it sends one, else 15 s, 30 s, 60 s, ..."""
+    try:
+        return max(0.0, float(e.headers.get("Retry-After", "")))
+    except (TypeError, ValueError):
+        return 15.0 * 2 ** attempt
+
+
+def run_one(base: str, key: str, model: str, i: int, row: dict, max_tokens: int,
+            temperature: float | None = None) -> dict:
     msgs = row["messages"]
     document = msgs[1]["content"].removeprefix(app.DOCUMENT_PREFIX)
     body = app.request_body(document, msgs[0]["content"], model)
     body["max_tokens"] = max_tokens
+    if temperature is not None:   # not the app's request: it sends none
+        body["temperature"] = temperature
     base_result = {"model": model, "row": i}
-    try:
-        reply = stream_completion(base, key, body)
-    except urllib.error.HTTPError as e:
-        return base_result | {"error": f"HTTP {e.code}: {e.read().decode()[:300]}"}
-    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
-        return base_result | {"error": f"{type(e).__name__}: {e}"}
+    for attempt in range(RETRIES + 1):
+        try:
+            reply = stream_completion(base, key, body)
+            break
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode()[:300]
+            # insufficient_quota is a 429 too, but waiting does not add credit.
+            if e.code in RETRY_STATUS and attempt < RETRIES and "insufficient_quota" not in detail:
+                wait = retry_wait(e, attempt)
+                print(f"    {model[:30]:<30} row {i:<3} HTTP {e.code}, retry in {wait:.0f}s")
+                time.sleep(wait)
+                continue
+            return base_result | {"error": f"HTTP {e.code}: {detail}"}
+        except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
+            return base_result | {"error": f"{type(e).__name__}: {e}"}
     # postChatCompletion: a reply cut at max_tokens is an error, not a reply.
     content = reply["content"] if reply["finish"] != "length" else ""
     return base_result | reply | {"finished": reply["finish"] == "stop"} | \
@@ -228,7 +277,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     where = ap.add_mutually_exclusive_group()
-    where.add_argument("--target", help="a runpod/ chart: pbbi-eval, pbbi-serverless-extraction, ...")
+    where.add_argument("--target", help="a runpod/ chart: pbbi-eval, pbbi-serverless-extraction, ...; "
+                                        f"or a hosted API: {', '.join(HOSTED)}")
     where.add_argument("--url", help="an OpenAI-compatible base URL, ending in /v1")
     where.add_argument("--check", action="store_true",
                        help="score the labels against themselves and stop; no network")
@@ -240,11 +290,18 @@ def main() -> None:
     ap.add_argument("--rows", help="e.g. 0 or 0,2-3; default all")
     ap.add_argument("--parallel", type=int, default=2,
                     help="requests in flight (default 2 = pbbi-eval's max_num_seqs)")
-    ap.add_argument("--max-tokens", type=int, default=app.MAX_OUTPUT_TOKENS,
-                    help=f"default {app.MAX_OUTPUT_TOKENS:,}, the app's own")
+    ap.add_argument("--max-tokens", type=int,
+                    help=f"default {app.MAX_OUTPUT_TOKENS:,}, the app's own; "
+                         "a hosted API's output cap for a hosted --target")
+    ap.add_argument("--temperature", type=float,
+                    help="add a temperature to the request (0 = greedy); default none, as the app")
     ap.add_argument("--out", type=Path, help="default preparation/data/scores/<UTC time>/")
     ap.add_argument("--dry-run", action="store_true", help="resolve and list; send nothing")
     args = ap.parse_args()
+    # A hosted API lists every model it has: without --model, every row would go to all of them.
+    hosted = HOSTED.get(args.target, {})
+    args.model = args.model or ([hosted["model"]] if hosted else None)
+    args.max_tokens = args.max_tokens or hosted.get("max_tokens") or app.MAX_OUTPUT_TOKENS
 
     rows = load_rows(args.data)
     picked = parse_rows(args.rows, len(rows))
@@ -278,7 +335,8 @@ def main() -> None:
         # Not even GET /models: on a serverless endpoint any request can wake a worker.
         print(f"  models     {', '.join(args.model) if args.model else 'every one GET /models lists'}")
         print(f"  requests   {len(args.model or ['?']) * len(picked)} "
-              f"({len(picked)} row(s) per model), max_tokens {args.max_tokens:,}")
+              f"({len(picked)} row(s) per model), max_tokens {args.max_tokens:,}, "
+              f"temperature {'none' if args.temperature is None else args.temperature}")
         print("\n  dry run — nothing sent to the endpoint\n")
         return
 
@@ -289,7 +347,8 @@ def main() -> None:
         raise Fail(f"not served there: {', '.join(missing)}   (served: {', '.join(served)})")
     print(f"  models     {', '.join(models)}")
     jobs = [(m, i) for m in models for i in picked]
-    print(f"  requests   {len(jobs)}, {args.parallel} at a time, max_tokens {args.max_tokens:,}")
+    print(f"  requests   {len(jobs)}, {args.parallel} at a time, max_tokens {args.max_tokens:,}, "
+          f"temperature {'none' if args.temperature is None else args.temperature}")
 
     out = args.out or HERE / "data" / "scores" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     (out / "replies").mkdir(parents=True, exist_ok=True)
@@ -298,7 +357,7 @@ def main() -> None:
     results: list[dict] = []
 
     def job(m: str, i: int) -> dict:
-        r = run_one(base, key, m, i, rows[i], args.max_tokens)
+        r = run_one(base, key, m, i, rows[i], args.max_tokens, args.temperature)
         reply = r.pop("content", None)
         if reply is not None:
             (out / "replies" / f"{m.replace('/', '__')}__row{i}.txt").write_text(reply, "utf-8")
@@ -330,6 +389,7 @@ def main() -> None:
     (out / "report.json").write_text(json.dumps({
         "endpoint": base, "target": args.target, "data": str(args.data), "rows": picked,
         "docs": {i: docs[i] for i in picked}, "max_tokens": args.max_tokens,
+        "temperature": args.temperature,
         "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "summary": summary, "results": results,
     }, ensure_ascii=False, indent=2), "utf-8")

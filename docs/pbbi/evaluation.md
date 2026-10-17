@@ -77,6 +77,35 @@ every row to each name on the same pod, in the same run. vLLM pulls a Hub repo's
 cannot be loaded this way side by side; evaluate the new version right after it is
 pushed, against the numbers recorded below for the old one.
 
+## `openai`: gpt-4.1-mini, no pod
+
+`make evaluate TARGET=openai` sends the same rows, in the same request, to
+`gpt-4.1-mini` on `https://api.openai.com/v1`, and scores the replies the same way.
+Set `OPENAI_API_KEY` in the root `.env` first. Nothing is deployed and nothing needs
+deleting, but every token is billed to the key.
+
+```bash
+make evaluate TARGET=openai ARGS="--dry-run"           # what would be sent
+make evaluate TARGET=openai ARGS="--rows 5,16"          # two short documents first
+make evaluate TARGET=openai                             # all of test.jsonl
+make evaluate TARGET=openai ARGS="--model gpt-4.1"      # another OpenAI model
+```
+
+There are two differences from the app's request:
+
+- **`max_tokens` is 32,768, not 65,536.** That is gpt-4.1-mini's output cap, and
+  OpenAI rejects a request that asks for more. A document whose answer is longer
+  ends `length` and scores 0, as it would in the app. Counted with OpenAI's
+  `o200k_base` tokenizer, three test answers are over the cap: DBS (38k), SEABANK
+  (47k) and SHOPEEPAY (35k). OCBC Kartu Kredit (30k) is close.
+- **No `temperature` means OpenAI's default, 1.0.** The request still sends none,
+  as the app does. Expect run-to-run variance.
+
+A 429 (rate limit) or a 5xx is retried up to 4 times, waiting for `Retry-After`.
+`insufficient_quota` is not retried. At tier-1 limits, keep `--parallel` at the
+default 2: OpenAI counts `max_tokens` against the per-minute token budget. The
+whole test split is ~425k input tokens and ~270k output tokens at the labels' length.
+
 ## How a reply is scored
 
 The same rules as training's quality check — both import `preparation/score.py` —

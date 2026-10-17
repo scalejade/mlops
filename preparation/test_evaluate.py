@@ -40,6 +40,8 @@ REPLIES = {
     "one-short": (json.dumps({"clauses": json.loads(LABELS)["clauses"][:2]}), "stop"),
 }
 SEEN: list[dict] = []
+# model name -> 429s still to send before replying as "perfect"; "no-credit" never stops
+RATE_LIMITED = {"busy": 1, "no-credit": 99}
 
 
 class FakeVLLM(BaseHTTPRequestHandler):
@@ -67,7 +69,17 @@ class FakeVLLM(BaseHTTPRequestHandler):
             return
         req = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         SEEN.append(req)
-        text, finish = REPLIES[req["model"]]
+        if RATE_LIMITED.get(req["model"], 0) > 0:
+            RATE_LIMITED[req["model"]] -= 1
+            code = "insufficient_quota" if req["model"] == "no-credit" else "rate_limit_exceeded"
+            body = json.dumps({"error": {"code": code}}).encode()
+            self.send_response(429)
+            self.send_header("Retry-After", "0")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        text, finish = REPLIES.get(req["model"], REPLIES["perfect"])
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.end_headers()
@@ -110,6 +122,11 @@ class Endpoint(unittest.TestCase):
         self.assertTrue(req["stream"])
         self.assertNotIn("temperature", req)
 
+    def test_temperature_is_sent_only_when_asked(self):
+        SEEN.clear()
+        evaluate.run_one(self.base, "k", "perfect", 0, ROW, 65536, temperature=0.0)
+        self.assertEqual(SEEN[-1]["temperature"], 0.0)
+
     def test_perfect_reply_scores_everything(self):
         r = self.run_model("perfect")
         self.assertEqual((r["finish"], r["finished"], r["json_valid"]), ("stop", True, True))
@@ -133,6 +150,18 @@ class Endpoint(unittest.TestCase):
         s = score.summarize([self.run_model("one-short")])
         self.assertAlmostEqual(s["recall"], 2 / 3)
         self.assertEqual(s["precision"], 1.0)
+
+    def test_rate_limit_is_retried(self):
+        SEEN.clear()
+        r = self.run_model("busy")
+        self.assertEqual(len(SEEN), 2)
+        self.assertEqual((r["matched"], r["labelled"]), (3, 3))
+
+    def test_out_of_credit_is_not_retried(self):
+        SEEN.clear()
+        r = self.run_model("no-credit")
+        self.assertEqual(len(SEEN), 1)
+        self.assertIn("insufficient_quota", r["error"])
 
     def test_unreachable_endpoint_is_an_error_result_not_a_crash(self):
         r = evaluate.run_one("http://127.0.0.1:9/v1", "k", "perfect", 0, ROW, 65536)

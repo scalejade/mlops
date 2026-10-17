@@ -22,6 +22,7 @@ numbers marked *measured* come from that run.
 | [serving.md](serving.md)                 | the network volume, the loader, the two endpoints                       |
 | [evaluation.md](evaluation.md)           | `pbbi-eval`, how a reply is scored, and every adapter's results          |
 | [troubleshooting.md](troubleshooting.md) | every failure we have hit, and its fix                                  |
+| [reports/](reports/)                     | dated evaluation reports (md, csv, pdf): [v0.1.2 vs gpt-4.1-mini](reports/pbbi-extraction-eval-v0.1.2-vs-gpt-4.1-mini.md), 2026-10-17 |
 
 ## Where PBBI lives in this repo
 

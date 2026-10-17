@@ -108,7 +108,7 @@ test:  ## offline tests of the local copy of the app's extraction call and the e
 	$(PY) -m unittest preparation/test_app_request.py preparation/test_evaluate.py
 
 TARGET ?= pbbi-eval
-evaluate:  ## score a deployed model on test.jsonl: make evaluate [TARGET=<chart>] [ARGS="--model ... --rows ..."]
+evaluate:  ## score a deployed model on test.jsonl: make evaluate [TARGET=<chart>|openai] [ARGS="--model ... --rows ..."]
 	@$(PY) preparation/evaluate.py --target $(TARGET) $(ARGS)
 
 wandb-example:  ## log a SIMULATED training run to W&B (<project>-example), no GPU
