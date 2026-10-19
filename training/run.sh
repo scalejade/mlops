@@ -23,6 +23,12 @@ LOG="${TRAIN_LOG:-/workspace/train.log}"
 # Makefile drives this over non-interactive ssh, so load it here.
 [ -f /etc/rp_environment ] && { set -a; . /etc/rp_environment; set +a; }
 
+# Unsloth's hybrid packing needs the varlen gated-deltanet kernels of fla 0.5,
+# which torch 2.8 cannot import; with fla 0.4.2 it raises at step 0 instead of
+# falling back. Packing is off (batch 1, packing: false), so the padded path
+# loses nothing. The pod chart sets this too; this covers pods made before it.
+export UNSLOTH_EXPERIMENTAL_HYBRID_PACKING="${UNSLOTH_EXPERIMENTAL_HYBRID_PACKING:-0}"
+
 die() { printf '\n  error  %s\n\n' "$*" >&2; exit 1; }
 say() { printf '  %s\n' "$*"; }
 

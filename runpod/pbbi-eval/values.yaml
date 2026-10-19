@@ -4,12 +4,13 @@
 model: scalejade/qwen-sea-lion-v4.5-27b-pbbi
 
 gpu:
-  # Any of these, whichever is free. Each holds the 55.6 GB base + fp8 KV cache.
+  # H200 only: decode is memory-bandwidth bound, and its 4.8 TB/s is ~2.5x the RTX
+  # PRO 6000's ~1.8 TB/s (24 tok/s measured there) — whole-document answers are
+  # 30-45k tokens. The others hold the 55.6 GB base + fp8 KV too, and are the
+  # fallback when no H200 is free:
+  #   "NVIDIA H100 80GB HBM3", "NVIDIA H100 NVL", "NVIDIA RTX PRO 6000 Blackwell Server Edition"
   types:
-    - "NVIDIA H100 80GB HBM3"
-    - "NVIDIA H100 NVL"
     - "NVIDIA H200"
-    - "NVIDIA RTX PRO 6000 Blackwell Server Edition"
   count: 1
   cloudType: SECURE
   # no dataCenterIds: own disk, so any region with capacity
@@ -38,14 +39,17 @@ engine:
   revision: 8d32a4b9c89c9272ae8d660792182da7950955a2
   served_model_name: scalejade/qwen-sea-lion-v4.5-27b-pbbi
   max_model_len: 131072
-  max_num_seqs: 2
+  max_num_seqs: 8           # decode is memory-bound: 8 replies in flight cost about
+                            # what 1 does per step. A 100k-token sequence is ~3 GiB
+                            # of fp8 KV; vLLM queues the rest if the cache fills.
   gpu_memory_utilization: 0.90
   kv_cache_dtype: fp8
   max_num_batched_tokens: 8192
   enable_prefix_caching: true
   enable_chunked_prefill: true
   # {name callers send as "model": HF repo id}. vLLM pulls each from the Hub at
-  # startup; the repo's main is what it gets (v0.1.0 for the extraction LoRA).
+  # startup; the repo's main is what it gets — the latest push (v0.1.1 since
+  # 2026-10-17: whole-document rows, trained at 81,920).
   max_lora_rank: 16
   lora_modules:
     pbbi-clause-extraction: scalejade/pbbi-clause-extraction-lora

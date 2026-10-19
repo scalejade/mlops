@@ -7,7 +7,7 @@ filled before any worker needs it. Back to the [index](README.md).
 
 | Endpoint | Serves | Adapter (vLLM model name) | State |
 |---|---|---|---|
-| `pbbi-serverless-extraction` | clause extraction — what the app calls today | `scalejade/pbbi-clause-extraction-lora` → `pbbi-clause-extraction` | ready to deploy — `runpod/pbbi-serverless-extraction/`, `ADAPTER_REVISION=v0.1.0` |
+| `pbbi-serverless-extraction` | clause extraction — what the app calls today | `scalejade/pbbi-clause-extraction-lora` → `pbbi-clause-extraction` | ready to deploy — `runpod/pbbi-serverless-extraction/`, `ADAPTER_REVISION=v0.1.3` (the `stable` tag) |
 | `pbbi-serverless-analysis` | analysis | `scalejade/pbbi-analysis-lora` → `pbbi-analysis` | **draft** — `runpod/pbbi-serverless-analysis/` exists, `ADAPTER_REVISION` is empty, so `plan` refuses it until the adapter is trained |
 
 Both serve the **same base** (`scalejade/qwen-sea-lion-v4.5-27b-pbbi` @ `8d32a4b9…`)
@@ -36,7 +36,7 @@ flag. That is how the deployment reaches vLLM:
 |---|---|---|
 | `MODEL_NAME`, `MODEL_REVISION` | model.config | `--model`, `--revision` — pinned, so a cold start never re-resolves `main` |
 | `ENABLE_LORA=true`, `MAX_LORAS=1`, `MAX_CPU_LORAS=1`, `MAX_LORA_RANK=16` | `deploy.py`, from `adapter:` | LoRA on; `MAX_CPU_LORAS` must be ≥ `MAX_LORAS` or vLLM refuses to start |
-| `LORA_MODULES=pbbi-clause-extraction=/runpod-volume/adapters/pbbi-clause-extraction-lora/v0.1.0` | `deploy.py` | `--lora-modules` |
+| `LORA_MODULES=pbbi-clause-extraction=/runpod-volume/adapters/pbbi-clause-extraction-lora/v0.1.3` | `deploy.py` | `--lora-modules` |
 | `HF_HOME=/runpod-volume/hf` | model.config | where the worker finds the base the loader pulled |
 
 ## The volume
@@ -47,7 +47,7 @@ flag. That is how the deployment reaches vLLM:
 /runpod-volume/                         (= /workspace on the loader pod)
 ├── hf/hub/models--scalejade--qwen-sea-lion-v4.5-27b-pbbi/   base, 55.6 GB, HF cache layout
 ├── adapters/
-│   ├── pbbi-clause-extraction-lora/v0.1.0/                  ~0.3 GB, plain directory
+│   ├── pbbi-clause-extraction-lora/v0.1.3/                  ~0.3 GB, plain directory
 │   └── pbbi-analysis-lora/<tag>/                            when it exists
 ├── loader.log                                               every fill, appended
 └── loader.done                                              what the last fill verified

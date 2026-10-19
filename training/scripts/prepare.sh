@@ -127,14 +127,27 @@ else
   echo "==> dependencies skipped (--skip-deps)"
 fi
 
-# The fast path for gated-deltanet. Separate from requirements.txt because
-# causal-conv1d compiles against the image's torch and takes ~10 minutes; a run
-# that only needs to prove the stack works should not pay that.
+# The fast path for gated-deltanet. Separate from requirements.txt so a run that
+# only needs to prove the stack works does not pay for it.
+#   - fla 0.4.2: 0.5.x imports torch.nn.functional.ScalingType, which the
+#     image's torch 2.8 does not have.
+#   - causal-conv1d --no-build-isolation: build isolation installs the newest
+#     torch (2.14 / CUDA 13, several GB) and builds against THAT, so the module
+#     dies at import against the image's 2.8. Without isolation its setup.py
+#     sees torch 2.8 and fetches a matching prebuilt wheel (the image has no nvcc).
+# Even with both, Unsloth's hybrid packing wants fla 0.5's varlen kernels and
+# raises at step 0 for Qwen3_5GatedDeltaNet unless
+# UNSLOTH_EXPERIMENTAL_HYBRID_PACKING=0 — run.sh and the pod chart set it.
 if [ "$FAST_KERNELS" -eq 1 ]; then
   echo
-  echo "==> fast linear-attention kernels (compiling, ~10 min)"
-  pip install -q flash-linear-attention causal-conv1d \
-    || echo "!!  build failed. Training still works on the slow fallback path."
+  echo "==> fast linear-attention kernels (prebuilt, ~1 min)"
+  pip install -q "flash-linear-attention==0.4.2" "fla-core==0.4.2" \
+    && pip install -q --no-build-isolation causal-conv1d \
+    || echo "!!  install failed. Training runs on the slower torch path."
+  python -c "import unsloth, transformers.models.qwen3_5.modeling_qwen3_5 as m; \
+assert m.is_fast_path_available" 2>/dev/null \
+    && echo "    gated-deltanet fast path   available" \
+    || echo "!!  gated-deltanet fast path NOT available (is_fast_path_available=False)"
 fi
 
 export HF_HOME="${HF_HOME:-$WORKSPACE/hf}"

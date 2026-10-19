@@ -50,3 +50,8 @@ venv/
 # --- Generated requests ------------------------------------------------------
 # These embed client documents. Never commit them.
 runpod/requests/**
+
+# --- Clause-level comparisons -------------------------------------------------
+# compare_runs.py workbooks quote the client contracts word for word. The md/csv/pdf
+# reports beside them hold scores and bank names only, and ARE tracked.
+docs/pbbi/reports/*.xlsx
