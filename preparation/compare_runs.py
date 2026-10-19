@@ -36,8 +36,8 @@ import score  # noqa: E402
 
 NEAREST_SHOWN = 0.3     # an unmatched label shows its closest unmatched clause above this
 FILL = {k: PatternFill("solid", fgColor=c) for k, c in {
-    "match": "D9EAD3", "miss": "F4CCCC", "extra": "FCE5CD", "head": "0B3D5C",
-    "m1": "DCE6F1", "m2": "EDE4F3", "legal": "F3F3F3"}.items()}
+    "match": "D1FAE5", "miss": "FDE2E1", "extra": "FCEFD9", "head": "17332A",
+    "m1": "ECFDF5", "m2": "F1F1EC", "legal": "FAF9F5"}.items()}
 BOLD, WHITE = Font(bold=True), Font(bold=True, color="FFFFFF")
 WRAP = Alignment(wrap_text=True, vertical="top")
 
@@ -153,7 +153,7 @@ def main() -> None:
     ws = wb.active
     ws.title = "Ringkasan"
     ws.append(["PBBI clause extraction — clause-by-clause comparison"])
-    ws["A1"].font = Font(bold=True, size=14, color="0B3D5C")
+    ws["A1"].font = Font(bold=True, size=14, color="047857")
     ws.append([f"Data: {args.data.name}, {len(picked)} contracts never used in training. "
                f"Both runs used the app's exact request and the app's own parser."])
     ws.append([])
@@ -186,7 +186,7 @@ def main() -> None:
         ws.cell(ws.max_row, 1).font = BOLD
     ws.append([])
     ws.append(["How to read the sheets"])
-    ws.cell(ws.max_row, 1).font = Font(bold=True, color="0B3D5C")
+    ws.cell(ws.max_row, 1).font = Font(bold=True, color="047857")
     for a, b in [
         ("Per kontrak", "Scores per contract for both models, and which one has the higher F1."),
         ("Perbandingan klausa", "One row per clause Legal labelled, with each model's clause beside it. "
@@ -238,7 +238,7 @@ def main() -> None:
     header(ws, 1, cols)
     for k in range(2):
         for c in range(6 + 5 * k, 11 + 5 * k):
-            ws.cell(1, c).fill = PatternFill("solid", fgColor=("2E5C8A" if k == 0 else "5E3C7A"))
+            ws.cell(1, c).fill = PatternFill("solid", fgColor=("047857" if k == 0 else "6B6D61"))
 
     def side_cells(side, gi):
         if gi in side["g2p"]:
