@@ -22,7 +22,7 @@ numbers marked *measured* come from that run.
 | [serving.md](serving.md)                 | the network volume, the loader, the two endpoints                       |
 | [evaluation.md](evaluation.md)           | `pbbi-eval`, how a reply is scored, and every adapter's results          |
 | [troubleshooting.md](troubleshooting.md) | every failure we have hit, and its fix                                  |
-| [reports/](reports/)                     | dated evaluation reports (md, csv, pdf): [v0.1.2 vs gpt-4.1-mini](reports/pbbi-extraction-eval-v0.1.2-vs-gpt-4.1-mini.md), [v0.1.3 vs v0.1.2](reports/pbbi-extraction-eval-v0.1.3.md), [v0.1.3 vs gpt-4.1-mini](reports/pbbi-extraction-eval-v0.1.3-vs-gpt-4.1-mini.md) (+ a clause-by-clause xlsx, gitignored), 2026-10-17; the non-technical [training report v0.1.3](reports/pbbi-training-report-v0.1.3.pdf) for supervisors, 2026-10-19 |
+| [reports/](reports/)                     | dated evaluation reports (md, csv, pdf): [v0.1.2 vs gpt-4.1-mini](reports/pbbi-extraction-eval-v0.1.2-vs-gpt-4.1-mini.md), [v0.1.3 vs v0.1.2](reports/pbbi-extraction-eval-v0.1.3.md), [v0.1.3 vs gpt-4.1-mini](reports/pbbi-extraction-eval-v0.1.3-vs-gpt-4.1-mini.md) (+ a clause-by-clause xlsx, gitignored), 2026-10-17; the client [report for Bank Indonesia](reports/report-pbbi-extraction.pdf) ([Bahasa Indonesia](reports/report-pbbi-extraction-id.pdf)) (data, training, v0.1.3 vs gpt-4.1-mini), 2026-10-21 |
 
 ## Where PBBI lives in this repo
 
