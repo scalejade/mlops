@@ -104,26 +104,34 @@ Kelima dokumen yang dipindah dipilih supaya satu dokumen menutup lebih dari satu
 - **Remitansi** hanya 1 dokumen di 60 (WISE). Tidak bisa ada di eval dan test sekaligus, jadi WISE tetap di train.
 - **Payment Gateway** hanya 2 dokumen (OY di test, YUKK di train). Memindahkan YUKK ke eval membuat train tidak punya Payment Gateway dan kehilangan 15 contoh kalimat pembuka definisi. YUKK tetap di train.
 
-### 3.5 Train dari dokumen baru `/all`
+### 3.5 Train dari dokumen baru `/all` (sudah direview pengawas, 2 November 2026)
 
-Semua dokumen baru hanya masuk train. Urutan pengerjaan oleh pengawas mengikuti prioritas.
+Semua dokumen baru hanya masuk train. Urutan pengerjaan oleh pengawas mengikuti prioritas. Kolom **Persiapan PDF** berisi catatan review: bagian yang harus dipotong atau dipisah sebelum diekstrak.
+
+**Perubahan dari review pengawas:**
+- ❌ **STANCHART KD** dikeluarkan karena produknya tabungan, bukan kartu debit.
+- ❌ **DANAMON General** dikeluarkan karena isinya campuran berbagai produk SP.
+- ➕ **JAKARTA MB** dipecah menjadi 2 dokumen: konvensional dan syariah.
+- ➕ **JOGJA** dipecah menjadi 2 dokumen: Kartu Debit dan Mobile Banking.
+
+Jumlah dokumen baru tetap **25**.
 
 **Prioritas 1 (12 dokumen): menyasar sub-butir yang digabung, dokumen panjang, dan kalimat pembuka definisi**
 
-| Dokumen | Cluster | Produk | Token | Baris `a.` | Alasan |
-|---|---|---|---|---|---|
-| JAKARTA Mobile Banking | B | MB | 21.147 | 234 | Sub-butir terbanyak, panjang, cluster terlemah |
-| STANCHART Kartu Debit | F | KD | 13.067 | 157 | Sub-butir; Multinational; F menggabungkan 78 dari 100 anak berhuruf |
-| CIMB Mobile Banking | A | MB | 20.925 | 125 | Panjang dengan banyak sub-butir |
-| DANA | C | UE Server | 25.446 | 53 | Panjang; cluster C; UE Server |
-| DBS Kartu Kredit | C | KK | 16.734 | 0 | Kalimat pembuka definisi; Multinational |
-| PERMATA Internet Banking | C | IB | ≈ 12–13k* | 1 | Kalimat pembuka definisi; IB baru terbesar; cluster C (train hanya 2 dari 60) |
-| DANAMON Kartu Debit | A | KD | 9.816 | 52 | Kalimat pembuka definisi dan sub-butir |
-| LINKAJA | C | UE Server | 11.768 | 32 | Cluster C; UE Server |
-| NOBU Mobile Banking | A | MB | 20.332 | 47 | Panjang |
-| NOBU Kartu Kredit | A | KK | 10.668 | 38 | KK dengan sub-butir |
-| NTB Mobile Banking | B | MB | 2.473 | 33 | Cluster B |
-| BCA UE Server-Based | B | UE Server | 3.888 | 24 | Cluster B; UE Server |
+| # | Dokumen | Cluster | Produk | Token (PDF utuh) | Baris `a.` | Alasan | Persiapan PDF |
+|---|---|---|---|---|---|---|---|
+| 1 | JAKARTA MB (konvensional) | B | MB | 21.147 (sebelum dipecah) | 234 (gabungan) | Sub-butir terbanyak, cluster terlemah | Bagian A: judul "A. SYARAT & KETENTUAN PEMBUKAAN REKENING TABUNGAN…" (baris terakhir hlm 3) + hlm 4–12 sampai XII. Kerjasama dengan pihak lain, termasuk 2 paragraf penutup. Hlm 1–3 (RIPLAY) dibuang. |
+| 2 | JAKARTA MB (syariah) | B | MB | (lihat #1) | (lihat #1) | Sama; varian syariah | Bagian B: hlm 13–25, dari judul "B. SYARAT & KETENTUAN … TABUNGAN SYARIAH …" sampai XII, lalu XIII. Kebijakan Privasi dan persetujuan "Pemrosesan Data Pribadi" (klausa, bukan formulir) |
+| 3 | CIMB MB | A | MB | 20.925 (dengan bagian UE) | 125 | Banyak sub-butir | Hanya bagian MB. Bagian UE Server-Based (mulai halaman 24) dipisah dan **tidak dipakai**, karena hampir sama dengan CIMB UE Server-Based yang sudah ada di train (kemiripan kata 0,79). |
+| 4 | DANA | C | UE Server | 25.446 | 53 | Panjang; cluster C; UE Server | – |
+| 5 | DBS KK | C | KK | 16.734 | 0 | Kalimat pembuka definisi; Multinational | – |
+| 6 | PERMATA IB | C | IB | ≈ 12–13k* | 1 | Kalimat pembuka definisi; IB baru terbesar; cluster C | Perlu versi yang bisa diunggah (deteksi bahasa aplikasi) |
+| 7 | DANAMON KD | A | KD | 9.816 | 52 | Kalimat pembuka definisi dan sub-butir | – |
+| 8 | LINKAJA | C | UE Server | 11.768 | 32 | Cluster C; UE Server | – |
+| 9 | NOBU MB | A | MB | 20.332 | 47 | Panjang | – |
+| 10 | NOBU KK | A | KK | 10.668 | 38 | KK dengan sub-butir | – |
+| 11 | NTB MB | B | MB | 2.473 | 33 | Cluster B | – |
+| 12 | BCA UE Server-Based | B | UE Server | 3.888 | 24 | Cluster B; UE Server | – |
 
 \*Token PERMATA IB adalah perkiraan, karena teks utuhnya belum bisa diambil lewat pipa aplikasi.
 
@@ -131,18 +139,27 @@ Semua dokumen baru hanya masuk train. Urutan pengerjaan oleh pengawas mengikuti 
 
 **Prioritas 2 (13 dokumen): menutup celah coverage**
 
-| Dokumen | Cluster | Alasan |
-|---|---|---|
-| KEPRI MB, MALUT KD, SUMUT KD, SULUTGO KD, JOGJA KD | D | Tabel dan kolom; D tinggal 1 dokumen di train setelah UOB KK ke eval dan KALSEL KD ke test |
-| BCA KK | C | Naratif; Kartu Kredit |
-| BALI KD, NTT MB | B | Cluster B |
-| DANAMON General | A | Jenis General pertama; kalimat pembuka definisi; panjang |
-| SMBC MB | A | Panjang |
-| SINARMAS IB, SINARMAS KK, BSI KK | A | Internet Banking dan Kartu Kredit |
+| # | Dokumen | Cluster | Alasan | Persiapan PDF |
+|---|---|---|---|---|
+| 13 | KEPRI MB | D | Tabel dan kolom; satu-satunya dokumen 3 kolom | Halaman terakhir dibuang |
+| 14 | MALUT KD | D | Tabel padat | Buang halaman formulir (1–2) dan "Bab VII. Ketentuan Pembukaan Rekening Produk Dana" |
+| 15 | SUMUT KD | D | Tabel | Buang "Pasal 3: Kewenangan Bertransaksi Rekening Gabungan" |
+| 16 | SULUTGO KD | D | Tabel | Buang halaman formulir (1–2), "Ketentuan Khusus Pembukaan Rekening Giro", dan "Ketentuan Khusus Pembukaan Rekening Deposito" |
+| 17 | JOGJA KD | D | Multi-kolom | Hanya bagian perorangan; ambil bagian IV, V, VII, VIII; halaman lain dibuang |
+| 18 | JOGJA MB | D | Multi-kolom; MB | Hanya bagian perorangan; ambil bagian VI, VII, VIII; halaman lain dibuang |
+| 19 | BCA KK | C | Naratif; Kartu Kredit | – |
+| 20 | BALI KD | B | Cluster B | Bisa diekstraksi tanpa OCR ✔ (2 font, tanpa gambar, 8.307 karakter teks Indonesia) |
+| 21 | NTT MB | B | Cluster B | – |
+| 22 | SMBC MB | A | Panjang | Halaman 1–5 dibuang |
+| 23 | SINARMAS IB | A | Internet Banking | – |
+| 24 | SINARMAS KK | A | Kartu Kredit | – |
+| 25 | BSI KK | A | Kartu Kredit (BUMN) | – |
 
-**Prioritas 3 (8 dokumen, opsional, untuk komposisi maksimal):** BRI KD, JAMBI MB, BJB Syariah MB, SULSELBAR MB, SUMSELBABEL MB, SUMUT MB, PERMATA MB, MEGA UE. Semuanya cluster A, pendek, dan produknya sudah kuat.
+**Prioritas 3 (8 dokumen, opsional, untuk komposisi maksimal):** BRI KD, JAMBI MB, BJB Syariah MB, SULSELBAR MB, SUMSELBABEL MB, SUMUT MB, PERMATA MB, MEGA UE. Semuanya cluster A, pendek, dan produknya sudah kuat. Belum direview pengawas.
 
-**Tidak dipakai (11 dokumen baru):**
+**Tidak dipakai (13 dokumen baru):**
+- STANCHART KD: produk tabungan, bukan kartu debit (review pengawas);
+- DANAMON General: campuran berbagai produk SP (review pengawas);
 - BJB Syariah KD, DANAMON KK: scan;
 - HSBC KK: gambar;
 - BOC KD ENG, BOC KK ENG, PERMATA KK ENG: berbahasa Inggris, ditolak aplikasi;
@@ -167,12 +184,12 @@ Semua dokumen baru hanya masuk train. Urutan pengerjaan oleh pengawas mengikuti 
 
 | Cluster | v0.1.3 | v0.1.4 rekomendasi | v0.1.4 maksimal |
 |---|---|---|---|
-| A. Daftar datar | 16 | 25 | 33 |
-| B. Induk → anak | 8 | 12 | 12 |
+| A. Daftar datar | 16 | 24 | 32 |
+| B. Induk → anak | 8 | 13 | 13 |
 | C. Naratif | 3 | 7 | 7 |
-| D. Tabel/kolom | 3 | 6 | 6 |
+| D. Tabel/kolom | 3 | 7 | 7 |
 | E. Dwibahasa | 3 | 2 | 2 |
-| F. Desimal | 6 | 6 | 6 |
+| F. Desimal | 6 | 5 | 5 |
 | **Total** | **39** | **58** | **66** |
 
 **Per produk**
@@ -181,11 +198,10 @@ Semua dokumen baru hanya masuk train. Urutan pengerjaan oleh pengawas mengikuti 
 |---|---|---|---|
 | Internet Banking | 7 | 8 | 8 |
 | Kartu Kredit | 6 | 9 | 9 |
-| Kartu Debit | 8 | 14 | 15 |
+| Kartu Debit | 8 | 13 | 14 |
 | Uang Elektronik (Chip + Server) | 4 | 6 | 7 |
-| Mobile Banking | 9 | 16 | 22 |
+| Mobile Banking | 9 | 18 | 24 |
 | MB & IB | 3 | 2 | 2 |
-| General | 0 | 1 | 1 |
 | Payment Gateway | 1 | 1 | 1 |
 | Remitansi | 1 | 1 | 1 |
 | **Total** | **39** | **58** | **66** |
@@ -194,12 +210,17 @@ Semua dokumen baru hanya masuk train. Urutan pengerjaan oleh pengawas mengikuti 
 
 | Ciri di train | v0.1.3 | v0.1.4 rekomendasi |
 |---|---|---|
-| Dokumen dengan teks ≥ 20k token | 2 | 7 |
-| Dokumen dengan kalimat pembuka definisi | 4 | 8 |
-| Multinational | 8 | 7 (3 pindah ke eval, +2 baru) |
-| Baris sub-butir berhuruf di teks dokumen baru | – | +1.066 |
+| Dokumen dengan teks ≥ 20k token | 2 | ≥ 4 (DANA, NOBU MB, ditambah JAGO MB dan UOB MB); dihitung ulang setelah PDF dipotong |
+| Dokumen dengan kalimat pembuka definisi | 4 | 7 (+DBS KK, DANAMON KD, PERMATA IB) |
+| Multinational | 8 | 6 (3 pindah ke eval, +1 baru: DBS KK) |
+| Baris sub-butir berhuruf di teks dokumen baru | – | ≈ 800 (sebelum PDF dipotong) |
 
-**Konsekuensi yang diterima:** cluster E (dwibahasa) di train turun dari 3 menjadi 2, dan tidak ada dokumen dwibahasa baru yang bersih. MB & IB di train turun dari 3 menjadi 2.
+**Konsekuensi yang diterima:**
+- Cluster E (dwibahasa) di train turun dari 3 menjadi 2, dan tidak ada dokumen dwibahasa baru yang bersih.
+- MB & IB di train turun dari 3 menjadi 2.
+- **Cluster F tidak mendapat dokumen baru**, karena STANCHART KD, satu-satunya dokumen F baru, dikeluarkan. F di train menjadi 5 (MEGA KK pindah ke eval), semuanya dari 60 dokumen awal.
+- Tidak ada dokumen General di train.
+- Tambahan baris sub-butir berkurang sekitar 270 karena STANCHART KD (157) dan DANAMON General (112) keluar. Cluster B naik ke 13 karena JAKARTA MB dipecah dua.
 
 ---
 
@@ -209,11 +230,11 @@ Semua dokumen baru hanya masuk train. Urutan pengerjaan oleh pengawas mengikuti 
 |---|---|
 | **Sub-butir digabung** (22,5–24,2 dari 29,2 poin recall hilang; 55–61% anak berhuruf digabung) | Dokumen prioritas 1 dengan banyak sub-butir dan dokumen panjang; opsi oversampling; opsi baris jendela |
 | **Nomor urut tersalin** (JATENG, SULTRA, BRI) | Panduan label konsisten (item mandiri tanpa nomor); kalimat di system prompt bila disetujui |
-| **Kalimat pembuka definisi tidak diulang** (OCBC IB) | Contoh di train naik dari 4 menjadi 8 dokumen; contoh di system prompt bila disetujui |
-| **Tabel dipecah** (BRI) | Dokumen bertabel di luar Kartu Kredit (KEPRI, MALUT, SUMUT, SULUTGO, JOGJA) |
+| **Kalimat pembuka definisi tidak diulang** (OCBC IB) | Contoh di train naik dari 4 menjadi 7 dokumen; contoh di system prompt bila disetujui |
+| **Tabel dipecah** (BRI) | Dokumen bertabel di luar Kartu Kredit (KEPRI, MALUT, SUMUT, SULUTGO, JOGJA KD, JOGJA MB) |
 
 **Opsi cara training (perlu diputuskan sebelum build):**
-- **Oversampling:** baris dokumen yang kaya sub-butir (JAKARTA MB, STANCHART KD, CIMB MB, DANAMON General) diulang 2–3 kali di train.
+- **Oversampling:** baris dokumen yang kaya sub-butir (JAKARTA MB konvensional dan syariah, CIMB MB, DANAMON KD, DANA) diulang 2–3 kali di train.
 - **Baris jendela:** turunkan batas baris di `build.py` agar dokumen panjang dipecah menjadi beberapa baris berisi bagian utuh. Fitur ini sudah ada; efeknya belum diuji.
 - **System prompt:** tambah kalimat "item bernomor yang berdiri sendiri ditulis tanpa nomornya" dan satu contoh kalimat pembuka definisi. Perlu persetujuan, dan semua baris dibangun ulang dengan prompt baru.
 
@@ -252,11 +273,12 @@ Konfigurasi training lain mengikuti v0.1.3 (LoRA r 16, lr 5e-5), dengan **1 epoc
 1. **Pipa teks:** perbaiki deteksi bahasa aplikasi untuk PDF cetak browser berkolom sempit, atau dapatkan PDF PERMATA IB yang bisa diunggah.
 2. **System prompt:** putuskan dua kalimat tambahan (nomor item mandiri; contoh kalimat pembuka definisi).
 3. **Panduan label untuk pengawas:** anak berhuruf dipisah dengan teks induk, item mandiri tanpa nomor, kalimat pembuka definisi diulang, satu tabel satu klausa.
-4. **Ekstraksi pengawas:** prioritas 1 (12), lalu prioritas 2 (13). Prioritas 3 (8) bila waktu tersedia.
-5. **Susun split** sesuai bagian 3: pindahkan KALSEL KD ke test, dan MANDIRI UE Chip, MAYBANK MB&IB, UOB KK, STANCHART IB, MEGA KK ke eval.
-6. **Build data** dengan `build.py`; cek token semua baris (≤ 98.304) dan panjang jawaban (≤ 65.536); putuskan oversampling dan baris jendela.
-7. **Training v0.1.4**, 1 epoch.
-8. **Evaluasi** keluaran model apa adanya, dibandingkan gpt-4.1-mini per dokumen:
+4. **Persiapan PDF** sesuai kolom "Persiapan PDF" di bagian 3.5: pecah JAKARTA MB (konvensional/syariah) dan JOGJA (KD/MB); potong halaman atau bagian di CIMB MB, KEPRI MB, MALUT KD, SUMUT KD, SULUTGO KD, dan SMBC MB.
+5. **Ekstraksi pengawas:** prioritas 1 (12), lalu prioritas 2 (13). Prioritas 3 (8) bila waktu tersedia, setelah direview pengawas.
+6. **Susun split** sesuai bagian 3: pindahkan KALSEL KD ke test, dan MANDIRI UE Chip, MAYBANK MB&IB, UOB KK, STANCHART IB, MEGA KK ke eval.
+7. **Build data** dengan `build.py`; cek token semua baris (≤ 98.304) dan panjang jawaban (≤ 65.536); putuskan oversampling dan baris jendela.
+8. **Training v0.1.4**, 1 epoch.
+9. **Evaluasi** keluaran model apa adanya, dibandingkan gpt-4.1-mini per dokumen:
    - 17 test lama (sebanding dengan v0.1.2 dan v0.1.3);
    - KALSEL KD terpisah;
    - per cluster struktur dan per produk.
@@ -279,6 +301,8 @@ Recall, precision, dan F1 dilaporkan apa adanya, termasuk bila belum mencapai 80
 | Model belajar memecah sub-butir lebih sedikit dari perkiraan | Recall dan F1 di bawah 80% | Oversampling, baris jendela, dan prompt; putaran data berikutnya |
 | Train dari dokumen terverifikasi berkurang 6 | Contoh berkualitas tinggi berkurang | Diimbangi 25–33 dokumen baru; dokumen sumber contoh langka tetap di train |
 | Cluster E di train hanya 2 | Dokumen dwibahasa tetap lemah (BOC 0,558) | Catat sebagai keterbatasan |
+| Cluster F tanpa dokumen baru | Sub-butir di dalam pasal desimal (F menggabungkan 78 dari 100 anak berhuruf) belum mendapat contoh tambahan | Oversampling dokumen F di train (UOB MB, YUKK, BTN IB); cari dokumen F lain di putaran berikutnya |
+| Pemotongan PDF tidak konsisten dengan teks yang dikirim aplikasi | Teks latih berbeda dari teks produksi | Potong di PDF sebelum diproses `build.py`, bukan di teks hasil ekstraksi; catat versi PDF yang dipakai |
 | Label baru tidak konsisten | Model belajar pola bertentangan | Panduan label tertulis sebelum ekstraksi |
 | PERMATA IB belum bisa diunggah | Prioritas 1 berkurang satu | Komposisi tetap berjalan tanpa dokumen ini (57 / 9 / 18) |
 | Label JAMBI KD (eval) bermasalah | Sinyal eval berisik | Cek dengan Legal; eval kini 9 dokumen, sehingga satu dokumen tidak dominan |
