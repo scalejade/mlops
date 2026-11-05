@@ -17,7 +17,7 @@ RFC ini mengusulkan tiga perubahan:
 2. Kemiripan diukur dengan **indeks Jaccard** atas kumpulan kata, bukan cosine bag-of-words.
 3. Ditambahkan **Recall, Precision, dan F1** yang dihitung dari rata-rata skor kemiripan, tanpa ambang.
 
-Metode ini sama dengan yang dipakai di laporan evaluasi untuk Bank Indonesia (`docs/pbbi/reports/report-pbbi-extraction-id.pptx`), sehingga angka di aplikasi dan di laporan akan sama.
+Metode ini sama dengan yang dipakai di laporan evaluasi untuk Bank Indonesia (ringkasannya di `docs/pbbi/reports/v0.1.3.md`), sehingga angka di aplikasi dan di laporan akan sama.
 
 ## 2. Perilaku saat ini
 
@@ -165,7 +165,7 @@ Tidak perlu migrasi skema. Field baru masuk ke `field_scores` (JSONB) dengan key
 - Detail per klausa menampilkan skor dan band.
 - Ditambahkan sheet "Klausa AI tanpa pasangan".
 
-Formatnya mengikuti `report-pbbi-extraction.xlsx`.
+Formatnya mengikuti workbook perbandingan klausa yang dijelaskan di `docs/pbbi/reports/v0.1.3.md` bagian 8.
 
 ### 5.5 Frontend
 

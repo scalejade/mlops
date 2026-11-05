@@ -22,7 +22,7 @@ numbers marked *measured* come from that run.
 | [serving.md](serving.md)                 | the network volume, the loader, the two endpoints                       |
 | [evaluation.md](evaluation.md)           | `pbbi-eval`, how a reply is scored, and every adapter's results          |
 | [troubleshooting.md](troubleshooting.md) | every failure we have hit, and its fix                                  |
-| [reports/](reports/)                     | dated evaluation reports (md, csv, pdf): [v0.1.2 vs gpt-4.1-mini](reports/pbbi-extraction-eval-v0.1.2-vs-gpt-4.1-mini.md), [v0.1.3 vs v0.1.2](reports/pbbi-extraction-eval-v0.1.3.md), [v0.1.3 vs gpt-4.1-mini](reports/pbbi-extraction-eval-v0.1.3-vs-gpt-4.1-mini.md) (+ a clause-by-clause xlsx, gitignored), 2026-10-17; the client [report for Bank Indonesia](reports/report-pbbi-extraction.pdf) ([Bahasa Indonesia](reports/report-pbbi-extraction-id.pdf)) (data, training, v0.1.3 vs gpt-4.1-mini), 2026-10-21 |
+| [reports/](reports/)                     | one md per version: [v0.1.2](reports/v0.1.2.md) (vs gpt-4.1-mini), [v0.1.3](reports/v0.1.3.md) (vs v0.1.2 and gpt-4.1-mini, client report for Bank Indonesia, workbook format), [v0.1.4](reports/v0.1.4.md) (retraining plan, loss analysis, final 85-document list) |
 
 ## Where PBBI lives in this repo
 
@@ -104,7 +104,7 @@ made there exists nowhere in git.
 | Repo                                      | What                                                   | Pinned at                                                        |
 | ----------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------- |
 | `scalejade/qwen-sea-lion-v4.5-27b-pbbi` | base for both tasks (Qwen3.5 27B, dedicated PBBI copy) | `8d32a4b9c89c9272ae8d660792182da7950955a2`                     |
-| `scalejade/pbbi-clause-extraction-lora` | extraction LoRA, r=16, 319 MB                          | `stable` = `v0.1.3` → `63773a48` (test F1 0.716, [report](reports/pbbi-extraction-eval-v0.1.3.md)) |
+| `scalejade/pbbi-clause-extraction-lora` | extraction LoRA, r=16, 319 MB                          | `stable` = `v0.1.3` → `63773a48` (test F1 0.716, [report](reports/v0.1.3.md)) |
 | `scalejade/pbbi-analysis-lora`          | analysis LoRA                                          | not trained —`training/configs/pbbi-analysis.yaml` is a draft |
 
 Both adapters sit on the **same base**, so one copy of the 55.6 GB base on the

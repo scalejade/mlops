@@ -6,15 +6,15 @@ labels next to what each model generated for the same contract.
     python preparation/compare_runs.py \\
         preparation/data/scores/test-v0.1.3-t0 "v0.1.3 (fine-tuned)" \\
         preparation/data/scores/test-gpt-4.1-mini-t0 "gpt-4.1-mini" \\
-        --out docs/pbbi/reports/pbbi-extraction-clauses-v0.1.3-vs-gpt-4.1-mini.xlsx
+        --out preparation/data/scores/clauses-v0.1.3-vs-gpt-4.1-mini.xlsx
 
 Each run directory is evaluate.py's --out: report.json plus replies/. Both runs
 must be over the same data file (test.jsonl by default). Matching is score.py's:
 both sides through the app's parse_reply + finalize, then one-to-one at >= 0.8
 word overlap, closest pairs first — the numbers equal evaluate.py's.
 
-THE WORKBOOK QUOTES THE CONTRACTS. Keep it out of git (docs/pbbi/reports/*.xlsx
-is gitignored) and share it the way the source contracts are shared.
+THE WORKBOOK QUOTES THE CONTRACTS. Keep it out of git (write it under the
+gitignored preparation/data/) and share it the way the source contracts are shared.
 """
 
 from __future__ import annotations

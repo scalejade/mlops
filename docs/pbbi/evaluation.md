@@ -193,7 +193,7 @@ model's temperature 1.0:
 
 `pbbi-eval` on an H200 · all 17 rows of `test.jsonl` (2,074 labelled clauses) ·
 `--temperature 0` (the app sends none; vLLM then samples at the base model's 1.0).
-Full write-up: [reports/pbbi-extraction-eval-v0.1.3.md](reports/pbbi-extraction-eval-v0.1.3.md).
+Full write-up: [reports/v0.1.3.md](reports/v0.1.3.md).
 
 | | `v0.1.2`, no temperature | `v0.1.2`, temperature 0 | **`v0.1.3`**, temperature 0 |
 |---|---|---|---|
