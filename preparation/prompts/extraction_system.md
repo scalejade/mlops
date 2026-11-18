@@ -18,7 +18,7 @@ Karena itu, ikuti **SELURUH** aturan di bawah ini secara berurutan dan tanpa kec
 
 1.1. Kecualikan seluruh teks bukan-klausa, yaitu:
 
-- 1.1.1. Header dan footer dokumen, yaitu teks berulang yang muncul pada setiap atau hampir setiap halaman (nama produk, nomor versi, tanggal cetak). Paragraf yang hanya muncul **sekali** di awal atau akhir dokumen **BUKAN** header/footer dan **wajib** diekstraksi sesuai aturan 1.3.
+- 1.1.1. Header dan footer dokumen, yaitu teks berulang yang muncul pada setiap atau hampir setiap halaman (nama produk, nomor versi, tanggal cetak). Paragraf yang hanya muncul **sekali** di awal atau akhir dokumen **BUKAN** header/footer dan **wajib** diekstraksi sesuai aturan 1.3. Catatan yang dirujuk penanda angka atau tanda bintang di badan teks juga **BUKAN** footer (aturan 8.6).
 - 1.1.2. Judul dokumen (judul utama yang menerangkan produk atau topik dokumen, misalnya "Syarat dan Ketentuan" atau "Kebijakan Privasi")
 - 1.1.3. Nomor halaman
 - 1.1.4. Bilah navigasi, menu, logo, atau elemen situs web lainnya (jika dokumen dicetak dari halaman web)
@@ -413,11 +413,12 @@ Penentuan apakah suatu teks setelah klausa anak terakhir merupakan teks penutup 
 
 8.3. Gambar, tangkapan layar, dan bagan/*chart* **tidak diekstraksi**.
 
-8.4. Tabel biasa (*plain table*) **diekstraksi per baris** apabila memungkinkan, dengan menggunakan karakter `|` sebagai pemisah antar kolom, dan **seluruh baris digabungkan menjadi satu klausa** (1 tabel = 1 klausa).
-
+8.4. Tabel biasa (*plain table*) **diekstraksi per baris** apabila memungkinkan: setiap baris tabel ditulis pada baris baru, **diawali dan diakhiri** `|`, dengan `|` sebagai pemisah antar kolom (contoh: `|Keterangan|Biaya|`). **Seluruh baris digabungkan menjadi satu klausa** (1 tabel = 1 klausa).
 - 8.4.1. Karakter `|` di dalam `clause_text` hanya berarti pemisah kolom tabel. Pemisah jenjang pada field `pasal` (lihat bagian 10) adalah hal yang berbeda dan tidak ada kaitannya dengan tabel.
 
 8.5. Dokumen hanya layak diekstraksi apabila teksnya dapat dibaca (bukan hasil pindaian gambar), sebagian besar isinya berupa teks, dan sebagian besar ditulis dalam Bahasa Indonesia.
+
+8.6. **Catatan kaki dan catatan akhir** — teks di bawah halaman atau di akhir dokumen yang dirujuk penanda angka (umumnya superskrip) atau tanda bintang (`*`, `**`, `*)`) di badan teks — bukan footer (aturan 1.1.1) maupun bagian penutup (aturan 1.3), dan **wajib diekstraksi**, tetapi **tidak membentuk klausa sendiri** dan isinya tidak diuji menurut bagian 3–6. Tulis penandanya dalam kurung siku (`[1]`, `[*]`), lalu tempatkan teks catatannya, diawali penanda yang sama dan ditulis dalam satu baris, pada baris baru di akhir setiap `clause_text` yang memuat penanda tersebut. Pasangkan setiap penanda dengan catatan berpenanda sama yang pertama muncul sesudahnya (bila tidak ada, yang terdekat sebelumnya). Catatan yang penandanya tidak ditemukan di badan teks tetap diekstraksi apa adanya sebagai klausa biasa.
 
 ---
 
@@ -502,7 +503,7 @@ Contoh: `Hak pembatasan akses layanan oleh Penyelenggara`, `Kewajiban pelaporan 
 Teks lengkap klausa setelah seluruh aturan di atas diterapkan.
 
 - **Salin teks klausa secara verbatim (kata demi kata) persis seperti tertulis di dokumen.** Anda **DILARANG** mengubah, meringkas, merangkum, memparafrasekan, memperbaiki, menyempurnakan, atau menerjemahkan teks klausa. Pertahankan kata, ejaan, tanda baca, huruf besar/kecil, dan istilah asli dokumen — termasuk apabila terdapat salah ketik atau tata bahasa yang keliru. Jangan menambahkan kalimat, penjelasan, atau kesimpulan apa pun yang tidak tertulis di dokumen. Klausa akan dinilai kepatuhannya terhadap peraturan, sehingga satu kata yang berubah dapat mengubah hasil penilaian.
-- Satu-satunya penyusunan ulang yang diperbolehkan adalah yang secara eksplisit diperintahkan oleh aturan di atas, yaitu: menggabungkan klausa anak (aturan 6), mewariskan konten induk sebagai awalan (aturan 7), menyusun baris tabel dengan pemisah `|` (aturan 8.4), dan membuang bagian Bahasa Inggris (aturan 9). Pada keempat hal tersebut pun, potongan teks yang disalin tetap harus verbatim.
+- Satu-satunya penyusunan ulang yang diperbolehkan adalah yang secara eksplisit diperintahkan oleh aturan di atas, yaitu: menggabungkan klausa anak (aturan 6), mewariskan konten induk sebagai awalan (aturan 7), menyusun baris tabel dengan pemisah `|` (aturan 8.4), membuang bagian Bahasa Inggris (aturan 9), dan menempatkan catatan kaki (aturan 8.6). Pada kelima hal tersebut pun, potongan teks yang disalin tetap harus verbatim.
 - Bahasa Indonesia saja — hilangkan seluruh terjemahan Bahasa Inggris (aturan 9).
 - Untuk klausa anak yang dipisahkan: sertakan konten induk yang diwariskan sebagai awalan (aturan 7).
 - **Jangan** menyertakan teks header atau judul ke dalam `clause_text`, **kecuali** klausa tersebut merupakan klausa anak yang dipisahkan, atau induknya sendiri memiliki konten dalam struktur induk-anak campuran (aturan 8.2).
@@ -538,3 +539,4 @@ Sebelum mengembalikan JSON, periksa:
 3. Paragraf pembuka dan penutup dokumen sudah diekstraksi (aturan 1.3).
 4. Klausa anak tanpa penanda sudah diberi penomoran di dalam `clause_text` (aturan 7.5), dan — apabila klausa anak tersebut DIPISAH — penomoran itu juga sudah ditambahkan sebagai segmen baru pada `pasal` sehingga setiap klausa hasil pemisahan memiliki `pasal` yang berbeda (aturan 7.5.2).
 5. Klausa gabungan memuat seluruh penanda anak yang digabung di dalam `clause_text` (aturan 7.4.1) — misalnya `pasal` `3|a-d` memuat `a.` sampai `d.`.
+6. Tidak ada catatan kaki, catatan akhir, atau catatan bertanda bintang yang menjadi klausa sendiri; setiap catatan sudah ditempatkan di akhir `clause_text` yang memuat penandanya (aturan 8.6).
