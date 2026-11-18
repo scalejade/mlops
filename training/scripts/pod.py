@@ -50,10 +50,13 @@ REPO = HERE.parents[1]
 DEFAULT_CHART = "pbbi-training"
 CHART = REPO / "runpod" / DEFAULT_CHART   # --chart replaces it
 
-API = "https://rest.runpod.io/v1"
-# REST v1 has no GPU catalogue — /gpuTypes 400s with "that path does not exist in
-# the specification". The old GraphQL API is the only place the ids and live prices
-# are readable, so `gpus` is the one command that talks to it.
+# REST v2. RunPod retired REST v1 (rest.runpod.io/v1) on 2026-11-15; its host no
+# longer resolves. v2 nests the create body (gpu{}, mounts{}), wraps lists in
+# {"pods": [...], "pagination": {...}}, renames desiredStatus -> status, and drives
+# start/stop through POST /pods/{id}/action. Spec: https://api.runpod.io/v2/openapi.json
+API = "https://api.runpod.io/v2"
+# REST has no GPU catalogue with live prices. The old GraphQL API is the only
+# place the ids and prices are readable, so `gpus` is the one command that talks to it.
 GRAPHQL = "https://api.runpod.io/graphql"
 VAR = re.compile(r"\$\{([A-Z0-9_]+)(?::-([^}]*))?\}")
 SECRET_KEYS = {"HF_TOKEN", "RUNPOD_API_KEY", "WANDB_API_KEY"}
@@ -240,12 +243,25 @@ def graphql(query: str) -> dict:
     return body["data"]
 
 
+def list_all(path: str, key: str) -> list[dict]:
+    """Every item of a v2 list endpoint, following its cursor pagination."""
+    items: list[dict] = []
+    cursor = None
+    while True:
+        page = api("GET", f"{path}?limit=1000" + (f"&cursor={cursor}" if cursor else ""))
+        items += page.get(key) or []
+        pg = page.get("pagination") or {}
+        if not pg.get("hasNextPage") or not pg.get("nextCursor"):
+            return items
+        cursor = pg["nextCursor"]
+
+
 def find_pod(name: str) -> dict | None:
-    pods = api("GET", "/pods")
-    pods = pods.get("data", pods) if isinstance(pods, dict) else pods
-    for p in pods or []:
-        if p.get("name") == name:
-            return p
+    """The live pod by name, fetched by id: the list endpoint leaves ssh.direct and
+    runtime null, and those are what ssh-target and status need."""
+    for p in list_all("/pods", "pods"):
+        if p.get("name") == name and p.get("status") != "TERMINATED":
+            return api("GET", f"/pods/{p['id']}")
     return None
 
 
@@ -357,16 +373,13 @@ def build_payload(cfg: dict, deps: dict) -> dict:
 
     payload = {
         "name": cfg["name"],
-        "imageName": container["image"],
-        "computeType": kind,
-        "cloudType": block.get("cloudType", "SECURE"),
-        **({"cpuFlavorIds": list(block["flavors"]),
-            "cpuFlavorPriority": "availability",
-            "vcpuCount": int(block.get("vcpus", 2))} if kind == "CPU" else
-           {"gpuTypeIds": [block["type"]],
-            "gpuCount": int(block.get("count", 1))}),
-        "containerDiskInGb": int(disk.get("container_gb", 100)),
-        "volumeMountPath": disk.get("mount_path", "/workspace"),
+        "image": container["image"],
+        "cloud": block.get("cloudType", "SECURE"),
+        # v2 takes one CPU flavor id (v1 took a priority list): the first one wins.
+        **({"cpu": {"id": list(block["flavors"])[0],
+                    "vcpuCount": int(block.get("vcpus", 2))}} if kind == "CPU" else
+           {"gpu": {"id": block["type"], "count": int(block.get("count", 1))}}),
+        "disk": int(disk.get("container_gb", 100)),
         "ports": container.get("ports", ["22/tcp", "8888/http"]),
         # env values must be strings — YAML turns 0.9 into a float and RunPod 400s.
         # Empty values are dropped: RunPod keeps them, and an empty HF_TOKEN on the
@@ -375,11 +388,9 @@ def build_payload(cfg: dict, deps: dict) -> dict:
     }
     # On a network volume the volume decides the region: RunPod places the pod in
     # its datacenter, and resolve_volume() has already checked the pin agrees. The
-    # pin is not sent, because REST v1's dataCenterIds enum lags the datacenters
-    # volumes exist in — US-CO-1 holds volumes but is a 400 on POST /pods.
+    # pin is not sent: the volume already fixes the region.
     if block.get("dataCenterIds") and disk.get("type") != "network_volume":
-        payload["dataCenterIds"] = block["dataCenterIds"]
-        payload["dataCenterPriority"] = "custom"
+        payload["dataCenterIds"] = list(block["dataCenterIds"])
 
     # train.py turns this into the cost/ panels on W&B. Informational only: the
     # real bill is RunPod's, and this is the rate values.yaml was last checked at.
@@ -388,7 +399,8 @@ def build_payload(cfg: dict, deps: dict) -> dict:
 
     boot = boot_command(cfg)
     if boot:
-        payload["dockerStartCmd"], boot_env = boot
+        # v1 dockerStartCmd == the container CMD in exec form == v2 `cmd`.
+        payload["cmd"], boot_env = boot
         payload["env"].update(boot_env)
 
     if not payload["env"].get("PUBLIC_KEY"):
@@ -396,10 +408,12 @@ def build_payload(cfg: dict, deps: dict) -> dict:
     if not payload["env"].get("HF_TOKEN"):
         warn(f"HF_TOKEN is not in {chart_env_path()} — private scalejade/ repos will 401 on the pod")
 
+    mount_path = disk.get("mount_path", "/workspace")
     if disk.get("type") == "network_volume":
-        payload["networkVolumeId"] = deps["volume"]
+        payload["mounts"] = {"network": [{"volumeId": deps["volume"], "path": mount_path}]}
     else:
-        payload["volumeInGb"] = int(disk.get("volume_gb", 200))
+        payload["mounts"] = {"persistent": {"size": int(disk.get("volume_gb", 200)),
+                                            "path": mount_path}}
     return payload
 
 
@@ -410,17 +424,16 @@ def resolve_volume(cfg: dict) -> dict:
     name = volume_dependency(cfg)
     if not name:
         raise Fail("disk.type is network_volume but chart.yaml declares no volume dependency")
-    vols = api("GET", "/networkvolumes")
-    vols = vols.get("data", vols) if isinstance(vols, dict) else vols
-    for v in vols or []:
+    for v in list_all("/network-volumes", "networkVolumes"):
         if v.get("name") == name:
-            ok(f"network volume '{name}' -> {v['id']}  ({v.get('dataCenterId')})")
+            dc = v.get("dataCenter")
+            ok(f"network volume '{name}' -> {v['id']}  ({dc})")
             region = (compute(cfg)[1].get("dataCenterIds") or [None])[0]
-            if region and v.get("dataCenterId") != region:
+            if region and dc != region:
                 raise Fail(
-                    f"volume '{name}' is in {v.get('dataCenterId')} but the pod asks for "
+                    f"volume '{name}' is in {dc} but the pod asks for "
                     f"{region}. Network volumes are region-local and will not attach. "
-                    f"Pin the pod to {v.get('dataCenterId')} in values.yaml, or (a GPU "
+                    f"Pin the pod to {dc} in values.yaml, or (a GPU "
                     f"pod with no H200 there) use disk.type: volume_disk."
                 )
             return {"volume": v["id"]}
@@ -506,9 +519,7 @@ def cmd_plan(apply: bool = False) -> None:
     payload = build_payload(cfg, deps)
 
     print()
-    for key in ("imageName", "computeType", "gpuTypeIds", "gpuCount", "cpuFlavorIds",
-                "vcpuCount", "containerDiskInGb", "volumeInGb", "networkVolumeId",
-                "volumeMountPath", "dataCenterIds"):
+    for key in ("image", "cloud", "gpu", "cpu", "disk", "mounts", "dataCenterIds", "ports"):
         if key in payload:
             info(f"{key:<20} {payload[key]}")
     for k, v in payload["env"].items():
@@ -521,7 +532,7 @@ def cmd_plan(apply: bool = False) -> None:
         for repo, rev in boot_adapters(cfg):
             info(f"{'boot':<20} and {repo} @ {rev} into /workspace/adapters/{repo.split('/')[1]}/{rev}")
             check_on_hub(repo, rev, what="boot adapter")
-    elif payload.get("dockerStartCmd"):
+    elif payload.get("cmd"):
         info(f"{'boot':<20} boot.model is empty — no model is pulled")
 
     price = cfg.get("cost", {}).get("usd_per_hour")
@@ -536,10 +547,10 @@ def cmd_plan(apply: bool = False) -> None:
     live = find_pod(cfg["name"])
     if live:
         api("PATCH", f"/pods/{live['id']}", {
-            "imageName": payload["imageName"],
+            "image": payload["image"],
             "env": payload["env"],
             "ports": payload["ports"],
-            **({"dockerStartCmd": payload["dockerStartCmd"]} if "dockerStartCmd" in payload else {}),
+            **({"cmd": payload["cmd"]} if "cmd" in payload else {}),
         })
         ok(f"pod updated  {live['id']}  (image, env, ports, boot — GPU and disk are fixed at creation)")
         pid = live["id"]
@@ -554,7 +565,7 @@ def cmd_plan(apply: bool = False) -> None:
     if payload["env"].get("BOOT_MODEL"):
         print( "  boot   the base model is downloading into /workspace/hf in the background.")
         print(f"         watch it: make pod-ssh {CHART.name}, then tail -f /workspace/boot-model.log")
-    if payload["computeType"] == "CPU":
+    if "cpu" in payload:
         print( "  then   make volume-fill waits for the download and deletes this pod")
         print(f"  stop   make pod-delete {CHART.name}   # if you created it by hand\n")
         return
@@ -569,13 +580,12 @@ def cmd_status() -> None:
     if not live:
         sys.exit(f"\n  pod '{cfg['name']}' is not on this account\n")
     print()
-    for key in ("id", "desiredStatus", "lastStatusChange", "machineId", "gpuCount",
-                "costPerHr", "volumeInGb", "networkVolumeId", "imageName"):
+    for key in ("id", "status", "startedAt", "gpu", "cost", "dataCenterId", "mounts", "image"):
         if live.get(key) is not None:
             info(f"{key:<20} {live[key]}")
-    for key in ("publicIp", "portMappings", "sshCommand"):
-        if live.get(key):
-            info(f"{key:<20} {live[key]}")
+    direct = (live.get("ssh") or {}).get("direct")
+    if direct:
+        info(f"{'ssh':<20} {direct.get('command') or direct}")
     info(f"{'connect':<20} console -> Pods -> {cfg['name']} -> Connect (SSH over the "
          f"exposed 22/tcp port, using SSH_PUBLIC_KEY from {chart_env_path()})")
     print()
@@ -592,13 +602,15 @@ def cmd_ssh_target() -> None:
     live = find_pod(cfg["name"])
     if not live:
         raise Fail(f"pod '{cfg['name']}' is not on this account — make pod-up {CHART.name} first")
-    if live.get("desiredStatus") != "RUNNING":
-        raise Fail(f"pod '{cfg['name']}' is {live.get('desiredStatus')} — make pod-start first")
-    ip, ports = live.get("publicIp"), live.get("portMappings") or {}
-    port = ports.get("22") or ports.get(22)
+    if live.get("status") != "RUNNING":
+        raise Fail(f"pod '{cfg['name']}' is {live.get('status')} — make pod-start first")
+    # ssh.direct is the published 22/tcp mapping (full ssh: scp works); the proxy
+    # variant is shell-only, which is no use to train-push-data.
+    direct = (live.get("ssh") or {}).get("direct") or {}
+    ip, port = direct.get("host"), direct.get("port")
     if not ip or not port:
         raise Fail(f"pod '{cfg['name']}' has no public ssh port yet "
-                   f"(publicIp={ip!r}, portMappings={ports!r}). Wait a minute and retry; "
+                   f"(ssh.direct={direct or None!r}). Wait a minute and retry; "
                    f"if it persists, check values.yaml exposes 22/tcp.")
     print(f"root@{ip} {port}")
 
@@ -619,7 +631,7 @@ def cmd_power(action: str) -> None:
     live = find_pod(cfg["name"])
     if not live:
         raise Fail(f"pod '{cfg['name']}' is not on this account")
-    api("POST", f"/pods/{live['id']}/{action}")
+    api("POST", f"/pods/{live['id']}/action", {"action": action})
     ok(f"pod {live['id']} {action}ped" if action == "stop" else f"pod {live['id']} started")
     if action == "stop":
         info("GPU billing has stopped. The disk still bills until the pod is deleted.")
@@ -633,7 +645,7 @@ def cmd_delete(yes: bool = False) -> None:
     if on_network_volume(cfg):
         info(f"/workspace (base, checkpoints, adapters, logs) stays on '{volume_dependency(cfg)}'.")
         info("the container disk goes: pip deps reinstall on the next pod.")
-        if live.get("desiredStatus") == "RUNNING":
+        if live.get("status") == "RUNNING":
             warn("if training is still running it is killed with the pod — make train-logs first.")
     else:
         warn("this deletes the pod AND its disk. Adapters not pushed to the Hub are lost.")
