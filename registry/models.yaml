@@ -63,3 +63,21 @@ models:
       PBBI copy, weights identical to the v4.5 mirror at clone time. Same ceiling:
       needs transformers >=5.2.0 and bf16, and does not run on the RunPod stock
       vLLM worker. Not evaluated and not deployed yet.
+
+  - name: pbbi-clause-extraction-lora
+    hub_repo: scalejade/pbbi-clause-extraction-lora
+    revision: 6b5bab5244dc1c6e115e1dd99876cb698cdb0a3f   # tag v0.1.4
+    version: v0.1.4
+    upstream: scalejade/qwen-sea-lion-v4.5-27b-pbbi
+    relation: finetune
+    params: 27B                     # a LoRA (r16) over a 27B base; the adapter itself is tiny
+    context_len: 98304              # what it was TRAINED at, not what the base serves
+    license: MIT
+    status: failed                  # release gate not met; v0.1.3 stays the reference
+    notes: >-
+      2026-11-18. 58 train / 9 eval rows (docs/pbbi/reports/v0.1.4.md), prompt @ pbi
+      1d7ccdd, 1 epoch, 29 steps, best checkpoint step 28 (eval loss 0.1486).
+      Test, Jaccard average on the 17 old documents: R 66.2 / P 84.1 / F1 74.1 vs
+      v0.1.3 70.8 / 84.4 / 77.0 -- gate (F1 >= 77.0) FAILED. Cause: DBS MB 78.1 -> 21.5
+      (whole numbered lists merged into 14 clauses > 2,000 chars); BJB MB -8.8.
+      Five documents up more than 3 points (SHOPEEPAY +18.0). KALSEL KD 65.3 vs gpt 55.0.

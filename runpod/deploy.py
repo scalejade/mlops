@@ -51,11 +51,14 @@ except ImportError:
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 
-# RunPod REST v1. Deprecated, retires 2026-11-15. v2 is NOT a drop-in replacement
-# (nested request bodies, /endpoints -> /serverless, list responses wrapped in an
-# object, RFC 9457 errors), so migration is a deliberate change, not a URL swap.
-# Everything version-specific is in api(), find_by_name(), and the KINDS table.
-API = "https://rest.runpod.io/v1"
+# RunPod REST v2. v1 (rest.runpod.io/v1) was retired on 2026-11-15 and its host no
+# longer resolves. v2 nests request bodies (gpu{}, mounts{}), wraps lists in
+# {"<collection>": [...], "pagination": {...}}, renames desiredStatus -> status and
+# drives start/stop through POST /pods/{id}/action.
+# Spec: https://api.runpod.io/v2/openapi.json
+# Migrated: volume and pod. NOT yet: serverless (v2 picks GPUs by pool, nests
+# scaling/workers, needs `type`) -- apply_serverless refuses until it is ported.
+API = "https://api.runpod.io/v2"
 
 VAR = re.compile(r"\$\{([A-Z0-9_]+)\}")
 
@@ -64,10 +67,13 @@ SECRET_KEYS = {"HF_TOKEN", "RUNPOD_API_KEY", "WANDB_API_KEY", "VLLM_API_KEY"}
 
 # kind -> REST collection it lives in.
 KINDS = {
-    "volume": "networkvolumes",
-    "serverless": "endpoints",
+    "volume": "network-volumes",
+    "serverless": "serverless",
     "pod": "pods",
 }
+# kind -> key of the list in a v2 list response.
+LIST_KEYS = {"network-volumes": "networkVolumes", "serverless": "endpoints",
+             "pods": "pods", "templates": "templates"}
 
 
 # --------------------------------------------------------------------------- io
@@ -287,11 +293,22 @@ def api(method: str, path: str, body: dict | None = None) -> dict | list:
         raise Fail(f"could not reach RunPod: {e.reason}")
 
 
+def list_all(collection: str) -> list[dict]:
+    """Every item of a v2 list endpoint, following its cursor pagination."""
+    items: list[dict] = []
+    cursor = None
+    while True:
+        page = api("GET", f"/{collection}?limit=1000" + (f"&cursor={cursor}" if cursor else ""))
+        items += page.get(LIST_KEYS[collection]) or []
+        pg = page.get("pagination") or {}
+        if not pg.get("hasNextPage") or not pg.get("nextCursor"):
+            return items
+        cursor = pg["nextCursor"]
+
+
 def find_by_name(collection: str, name: str) -> dict | None:
-    items = api("GET", f"/{collection}")
-    if isinstance(items, dict):
-        items = items.get(collection) or items.get("data") or []
-    return next((i for i in items if i.get("name") == name), None)
+    return next((i for i in list_all(collection)
+                 if i.get("name") == name and i.get("status") != "TERMINATED"), None)
 
 
 # ------------------------------------------------------------------- preflight
@@ -310,7 +327,7 @@ def preflight_volume(chart: dict) -> None:
             "anything that mounts it must be pinned to the same region."
         )
 
-    live = find_by_name("networkvolumes", chart["name"])
+    live = find_by_name("network-volumes", chart["name"])
     if live and size and int(live.get("size", 0) or 0) > size:
         problems.append(
             f"volume.size={size} is smaller than the live volume "
@@ -486,7 +503,7 @@ def build_volume_payload(chart: dict) -> dict:
     return {
         "name": chart["name"],
         "size": int(vol["size"]),
-        "dataCenterId": vol["dataCenterId"],
+        "dataCenter": vol["dataCenterId"],
     }
 
 
@@ -633,35 +650,36 @@ def build_pod_payload(chart: dict, deps: dict[str, str]) -> dict:
     disk = v.get("disk", {})
     container = expand(v.get("container", {}), chart)
 
+    # v2 pods take ONE gpu.id (v1 took a list and used whichever was free).
+    types = list(gpu.get("types") or [gpu["type"]])
+    if len(types) > 1:
+        warn(f"gpu.types lists {len(types)} types; REST v2 pods take one — using {types[0]}")
+    mount_path = disk.get("mount_path", "/workspace")
     payload = {
         "name": chart["name"],
-        "imageName": container["image"],
-        "computeType": "GPU",
-        "cloudType": gpu.get("cloudType", "SECURE"),
-        # gpu.types: any of these, whichever is free — one type alone is what left
-        # the serverless worker throttled on 2026-10-16.
-        "gpuTypeIds": list(gpu.get("types") or [gpu["type"]]),
-        "gpuCount": int(gpu.get("count", 1)),
-        "containerDiskInGb": int(disk.get("container_gb", 50)),
-        "volumeMountPath": disk.get("mount_path", "/workspace"),
+        "image": container["image"],
+        "cloud": gpu.get("cloudType", "SECURE"),
+        "gpu": {"id": types[0], "count": int(gpu.get("count", 1))},
+        "disk": int(disk.get("container_gb", 50)),
         "ports": container.get("ports", ["8000/http", "22/tcp"]),
         # env values must be strings — YAML turns 0.90 into a float and RunPod 400s.
         "env": {k: str(x) for k, x in (container.get("env") or {}).items()},
         # The vllm/vllm-openai image has `vllm serve` as its ENTRYPOINT, so this is
-        # arguments only, starting with the model name.
-        "dockerStartCmd": build_serve_args(chart),
+        # arguments only (v2 `cmd` = CMD in exec form), starting with the model name.
+        "cmd": build_serve_args(chart),
     }
 
     if gpu.get("dataCenterIds"):
-        payload["dataCenterIds"] = gpu["dataCenterIds"]
-        payload["dataCenterPriority"] = "custom"
+        payload["dataCenterIds"] = list(gpu["dataCenterIds"])
 
     if disk.get("type") == "network_volume":
         for dep in chart.get("dependencies") or []:
             if dep.get("kind") == "volume":
-                payload["networkVolumeId"] = deps[dep["name"]]
+                payload["mounts"] = {"network": [{"volumeId": deps[dep["name"]],
+                                                  "path": mount_path}]}
     else:
-        payload["volumeInGb"] = int(disk.get("volume_gb", 20))
+        payload["mounts"] = {"persistent": {"size": int(disk.get("volume_gb", 20)),
+                                            "path": mount_path}}
 
     return payload
 
@@ -719,8 +737,7 @@ def cmd_plan(name: str, apply: bool = False) -> None:
         preflight_pod(chart)
         payload = build_pod_payload(chart, deps)
         print(f"\n  {c('hardware', '1')}")
-        for k in ("imageName", "gpuTypeIds", "gpuCount", "cloudType", "dataCenterIds",
-                  "containerDiskInGb", "volumeInGb", "networkVolumeId", "volumeMountPath", "ports"):
+        for k in ("image", "gpu", "cloud", "dataCenterIds", "disk", "mounts", "ports"):
             if k in payload:
                 info(f"{k:<20} {payload[k]}")
         price = chart["values"].get("gpu", {}).get("price_per_hour_usd")
@@ -730,7 +747,7 @@ def cmd_plan(name: str, apply: bool = False) -> None:
         for k, val in payload["env"].items():
             info(f"{k:<24} {mask(k, val)}")
         print(f"\n  {c('vllm serve', '1')}")
-        print("    " + " ".join(payload["dockerStartCmd"]))
+        print("    " + " ".join(payload["cmd"]))
 
     if not apply:
         print(f"\n  {c('dry run', '33')} — nothing sent. Re-run with 'apply' to deploy.\n")
@@ -746,14 +763,14 @@ def cmd_plan(name: str, apply: bool = False) -> None:
 
 
 def apply_volume(chart: dict, payload: dict) -> None:
-    live = find_by_name("networkvolumes", chart["name"])
+    live = find_by_name("network-volumes", chart["name"])
     if live:
         # Only size is mutable, and only upward.
-        api("PATCH", f"/networkvolumes/{live['id']}", {"size": payload["size"]})
+        api("PATCH", f"/network-volumes/{live['id']}", {"size": payload["size"]})
         ok(f"volume updated  {live['id']}")
         vid = live["id"]
     else:
-        created = api("POST", "/networkvolumes", payload)
+        created = api("POST", "/network-volumes", payload)
         vid = created["id"]
         ok(f"volume created  {vid}")
     print(f"\n  id    {vid}")
@@ -761,6 +778,11 @@ def apply_volume(chart: dict, payload: dict) -> None:
 
 
 def apply_serverless(chart: dict, template_payload: dict, endpoint_payload: dict) -> None:
+    # Still REST v1-shaped (gpuTypeIds, scalerType, executionTimeoutMs, templates
+    # with isServerless). v2 needs gpu.pools, scaling{}, workers{}, type -- port it
+    # (and check pools against GET /v2/catalog/gpus) before the next deploy.
+    raise Fail("serverless apply is not ported to RunPod REST v2 yet (v1 retired "
+               "2026-11-15) — see the comment at the top of deploy.py")
     # Create-only fields: REST v1's *UpdateInput schemas reject them with a 400
     # ("Extra input keys provided"), so they are sent on POST and dropped on PATCH.
     existing_tpl = find_by_name("templates", chart["name"])
@@ -798,8 +820,7 @@ def apply_pod(chart: dict, payload: dict) -> None:
         # A pod's GPU, disk and region are fixed at creation. Only the container
         # side is patchable, so say plainly what was NOT applied rather than
         # reporting success for a change that did not happen.
-        patch = {k: payload[k] for k in ("imageName", "env", "dockerStartCmd", "ports")
-                 if k in payload}
+        patch = {k: payload[k] for k in ("image", "env", "cmd", "ports") if k in payload}
         api("PATCH", f"/pods/{pid}", patch)
         ok(f"pod updated  {pid}  (image, env, start command, ports)")
         warn("gpu, disk and region are fixed at creation — delete and recreate to change them")
@@ -826,11 +847,11 @@ def cmd_status(name: str) -> None:
     print(f"\n{c(chart['name'], '1')}  {chart['kind']}  {rid}")
 
     fields = {
-        "volume": ("size", "dataCenterId"),
+        "volume": ("size", "dataCenter", "type"),
         "serverless": ("templateId", "gpuTypeIds", "gpuCount", "workersMin", "workersMax",
                        "idleTimeout", "networkVolumeId", "dataCenterIds"),
-        "pod": ("desiredStatus", "imageName", "gpuCount", "costPerHr", "machineId",
-                "containerDiskInGb", "volumeInGb", "networkVolumeId", "lastStartedAt"),
+        "pod": ("status", "image", "gpu", "cost", "dataCenterId", "disk", "mounts",
+                "startedAt"),
     }[chart["kind"]]
     for k in fields:
         if k in detail:
@@ -840,8 +861,8 @@ def cmd_status(name: str) -> None:
         print(f"\n  url   https://api.runpod.ai/v2/{rid}/openai/v1")
     elif chart["kind"] == "pod":
         print(f"\n  url   https://{rid}-8000.proxy.runpod.net/v1")
-        if detail.get("desiredStatus") == "RUNNING" and detail.get("costPerHr"):
-            warn(f"RUNNING — billing at ${detail['costPerHr']}/hr")
+        if detail.get("status") == "RUNNING" and detail.get("cost"):
+            warn(f"RUNNING — billing at ${detail['cost']}/hr")
     print()
 
 
@@ -856,10 +877,7 @@ def cmd_list() -> None:
     cache: dict[str, list] = {}
     for collection in KINDS.values():
         try:
-            items = api("GET", f"/{collection}")
-            if isinstance(items, dict):
-                items = items.get(collection) or items.get("data") or []
-            cache[collection] = items
+            cache[collection] = list_all(collection)
         except Fail:
             cache[collection] = []
 
@@ -873,7 +891,7 @@ def cmd_list() -> None:
         kind = chart["kind"]
         live = next((i for i in cache[KINDS[kind]] if i.get("name") == chart["name"]), None)
         if live:
-            status = live.get("desiredStatus") or "live"
+            status = live.get("status") or "live"
             print(f"  {chart['name']:<26} {kind:<12} {live['id']:<18} {c(status, '32')}")
         else:
             print(f"  {chart['name']:<26} {kind:<12} {'-':<18} {c('not deployed', '33')}")
@@ -910,7 +928,7 @@ def cmd_pod_action(name: str, action: str) -> None:
     live = find_by_name("pods", chart["name"])
     if not live:
         raise Fail(f"pod '{chart['name']}' is not deployed")
-    api("POST", f"/pods/{live['id']}/{action}")
+    api("POST", f"/pods/{live['id']}/action", {"action": action})
     ok(f"pod {action} sent  {live['id']}")
     if action == "stop":
         info("billing stops. The volume disk survives — do not delete the pod.")
