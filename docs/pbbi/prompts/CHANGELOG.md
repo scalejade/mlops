@@ -417,7 +417,22 @@ Pemadatan tidak menurunkan skor. Sisa selisihnya sama dengan v4.6: definisi 2.6�
 
 **Panjang:** 24.012 token (+325 dari v4.8). Baris terpanjang di data (UOB MB) 99.349 token.
 
-**Hasil:** belum diuji. Uji v4.8.1 di OY dan DBS terhenti karena batas pemakaian mingguan model agent (reset 25 Nov 02.00 WIB). v4.8.1 menjadi `preparation/prompts/extraction_system.md`, dan data v0.1.5 sudah dibangun dengan prompt ini.
+**Hasil** (21 Nov). Agent **Haiku**, karena batas pemakaian Sonnet sudah habis. Satu run per dokumen, terhadap label final. Skor Sonnet dihitung ulang terhadap label yang sama (OY sekarang sudah memakai K9):
+
+| Dokumen | v4.7 (Sonnet) | v4.8 (Sonnet) | **v4.8.1 (Haiku)** |
+|---|---|---|---|
+| OY PG | 91,9 | 97,6 | 94,6 |
+| DBS MB | 98,5 | 98,7 | 97,1 |
+
+- **Aturan baru sudah dijalankan:**
+  - K9: OY 10 Ganti Rugi (i)–(iv) dan kalimat pembelaan cocok 100%; OY 16 (i)–(iii) dipisah.
+  - DBS 23 (saluran informasi) digabung, cocok 100%.
+  - K5 (OY 9, 8 klausa) dan K7 (DBS `Transaksi` i/ii/iii) tetap benar.
+- **Selisih terhadap Sonnet berasal dari kelemahan Haiku, bukan dari aturan baru:**
+  - OY: kalimat pertama paragraf dipotong menjadi klausa sendiri, melanggar 3.3.6.
+  - DBS: daftar 14.9 tidak dipisah, dan batas sub-daftar 37.10 meleset.
+  - Kasus-kasus ini benar di run Sonnet v4.8.
+- v4.8.1 menjadi `preparation/prompts/extraction_system.md`, dan data v0.1.5 sudah dibangun dengan prompt ini. Uji Sonnet bisa diulang setelah 25 Nov 02.00 WIB untuk pembanding langsung.
 
 ## Berikutnya (belum diterapkan)
 

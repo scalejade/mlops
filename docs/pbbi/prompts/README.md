@@ -23,7 +23,7 @@ Rincian perubahan per versi, kapan dibuat, arah, dan hasilnya ada di [CHANGELOG.
 | [11-v4.7.md](11-v4.7.md) | 2026-11-21 | Draf | v4.6 dipadatkan (26.201 → 22.739 token) tanpa mengubah isi aturan | 7 dokumen (Sonnet): rata-rata F1 97,5 (v4.5: 96,4) |
 | [12-v4.7.1.md](12-v4.7.1.md) | 2026-11-21 | Draf | v4.7 + daftar biaya/denda/beban yang dikenakan kepada suatu pihak dipisah (BJB D.11) | Belum diuji. **Tidak dipakai**: keputusan 21 Nov, training v0.1.5 memakai v4.7 |
 | [13-v4.8.md](13-v4.8.md) | 2026-11-21 | Draf | v4.7 + keputusan tim K1–K8 (fitur bermerek = Definisi Umum, tujuan pemrosesan data dipisah, `Yang mencakup` dipisah, kondisi milik butir terakhir, teks penutup OY) | SEABANK 99,6, DBS 98,7, OY 94,2 (v4.7: 99,4 / 98,5 / 94,7) |
-| [14-v4.8.1.md](14-v4.8.1.md) | 2026-11-21 | Draf | v4.8 + K9 (daftar sebaris ruang lingkup ganti rugi/tanggung jawab dipisah walau tanpa `:`) + saluran informasi digabung (DBS 23) | `preparation/prompts/extraction_system.md` — **prompt untuk training v0.1.5**. Belum diuji (batas pemakaian agent) |
+| [14-v4.8.1.md](14-v4.8.1.md) | 2026-11-21 | Draf | v4.8 + K9 (daftar sebaris ruang lingkup ganti rugi/tanggung jawab dipisah walau tanpa `:`) + saluran informasi digabung (DBS 23) | `preparation/prompts/extraction_system.md` — **prompt untuk training v0.1.5**. Haiku: OY 94,6, DBS 97,1; K9 dan DBS 23 sesuai keputusan |
 
 **Uji v4, DBS MB** (Sonnet, 262 klausa label, 2026-11-20):
 

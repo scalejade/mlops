@@ -66,6 +66,34 @@ Delapan kasus yang tidak dijawab langsung oleh pengawas diputuskan oleh tim lewa
 
 **Dampak ke prompt:** K7 dan K8 mempersempit Definisi Khusus. Fitur pembayaran bermerek seperti `Bayar Instan` sekarang Umum, padahal aturan 4.3.3.4 di v4.7 menyebut "fitur layanan bermerek" sebagai Khusus. K1, K2, K3, K5, dan K6 belum punya contoh di v4.7. Prompt diselaraskan di v4.8 (K1–K8) dan v4.8.1 (K9, DBS 23); lihat `prompts/CHANGELOG.md`.
 
+## Tahap 2 — penyesuaian ke prompt v4.8.1 (21 Nov)
+
+Setelah prompt dibekukan di v4.8.1, label di semua dokumen dicek ulang terhadap seluruh aturan prompt itu, tanpa agent. Kandidat dicari dengan pola yang mencakup K1–K9, lalu diperiksa satu per satu: 169 kandidat setelah klausa yang sudah dipisah di tingkat terdalam disaring.
+
+| Hasil | Jumlah | Contoh |
+|---|---|---|
+| Dipisah | 26 struktur | `Nasabah wajib: a. … b. …`; `PIN … akan diblokir jika:`; `menyatakan dan menjamin bahwa:`; `Kami berhak membebankan … biaya layanan, yaitu:`; Force Majeure `termasuk tetapi tidak terbatas pada:` (R14); Ganti Rugi SeaBank dan YUKK 10.10 (K9); saluran pengaduan, registrasi, dan pembayaran; skenario per jenis akun atau kewarganegaraan |
+| Digabung | 1 | BALI KD `… dengan syarat-syarat berikut:` (syarat kumulatif) |
+| Penanda dihapus dari awal klausa independen (aturan 10.3) | 11 | LinkAja, ShopeePay 2.2.7, BSI F.1, StanChart IB, NOBU MB |
+| Tetap (salah tangkap atau sudah sesuai) | ±130 | Daftar fitur/layanan, prosedur, syarat kumulatif (`hanya jika … dan …`, `harus: …`), data sasaran satu kewajiban, saluran untuk informasi, urutan alokasi pembayaran |
+
+**Hasil:**
+- File gold sekarang ada di 36 dokumen (22 train, 3 validation, 11 test).
+- Total +50 klausa dibanding akhir tahap 1.
+- Data: train 6.991 klausa, eval 854, test 2.209.
+- Baris terpanjang 99.737 token; 0 klausa terbuang.
+- Topik untuk 82 klausa baru ditulis manual.
+
+**Dikoreksi saat penulisan topik:** WISE 20.1 (`dapat menautkan … dengan ketentuan: (a) … dan (d) …`) tetap satu klausa. Butirnya syarat kumulatif, sesuai topik Legal.
+
+**Ragu, tidak diubah:**
+- DANAMON KD G.4.a: daftar risiko bertingkat.
+- OCBC KD Contactless: informasi fitur bercampur hak dan kewajiban; label tetap dipisah.
+- SULSELBAR KD: cara edukasi.
+- MANDIRI UE 11: jenis gangguan teknis/nonteknis.
+
+Rencana tahap 2 ada di `preparation/data/relabel-v0.1.5/pass2/` (tidak masuk git).
+
 ## Batasan
 
 Kandidat dicari dengan pola teks, jadi mungkin masih ada kasus yang terlewat, terutama di dokumen train. Cara yang lebih lengkap: jalankan ekstraksi dengan prompt v4.7 di dokumen train, lalu bandingkan hasilnya dengan label. Setiap perbedaan adalah kandidat konflik.
