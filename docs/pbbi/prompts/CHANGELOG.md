@@ -378,7 +378,7 @@ Pemadatan tidak menurunkan skor. Sisa selisihnya sama dengan v4.6: definisi 2.6â
 
 **Panjang:** 22.876 token (+137 dari v4.7).
 
-**Hasil:** belum diuji. v4.7.1 menggantikan v4.7 di `preparation/prompts/extraction_system.md`.
+**Hasil:** belum diuji. **Tidak dipakai.** Keputusan 21 Nov: training v0.1.5 memakai v4.7, yang sudah diuji di 7 dokumen. Label BJB D.11 tetap dipisah, sesuai prinsip 5.1.0.
 
 ## Berikutnya (belum diterapkan)
 
