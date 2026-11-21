@@ -380,6 +380,45 @@ Pemadatan tidak menurunkan skor. Sisa selisihnya sama dengan v4.6: definisi 2.6�
 
 **Hasil:** belum diuji. **Tidak dipakai.** Keputusan 21 Nov: training v0.1.5 memakai v4.7, yang sudah diuji di 7 dokumen. Label BJB D.11 tetap dipisah, sesuai prinsip 5.1.0.
 
+## v4.8 — 21 Nov 2026: keputusan tim K1–K8
+
+**Asal:** delapan kasus yang tidak dijawab pengawas diputuskan tim (catatan lengkap di `docs/pbbi/relabel-v0.1.5.md`). Label sudah mengikuti keputusan ini, jadi prompt diselaraskan supaya prompt dan label tidak bertentangan saat training.
+
+| K | Aturan | Perubahan |
+|---|---|---|
+| K8 | 4.3.2.1, 4.3.3.4, 4.3.4 (b), 4.3.4.2 | Nama **fitur**, walaupun bermerek (`Direct Debit`/`Bayar Instan`), adalah Definisi Umum; hanya nama produk/aplikasi yang Khusus. `Pelanggan` merchant bukan para pihak, jadi Umum |
+| K7 | 4.3.4 (c), 4.3.4.4 (baru) | `Transaksi` yang menyebut layanan berkategori Khusus adalah Khusus. Definisi dengan sub-butir campuran Khusus/Umum dipecah per sub-butir (DBS `Transaksi` i/ii/iii) |
+| K1, K2 | 5.2.2.3, 6.6 | Daftar tujuan pemrosesan/penggunaan data dipisah per tujuan, termasuk sub-butir bertingkat |
+| K6 | 5.2.2.3, 6.6 | `Yang mencakup:` setelah suatu kewajiban dipisah (seperti R14) |
+| K3 | 3.2.4.6 (baru) | Kondisi setelah butir sebaris terakhir hanya milik butir terakhir (UOB KK 2.3.4: (i)–(iii) sendiri-sendiri, (iv) dipecah per kondisi) |
+| K5 | 3.5.9.3 (baru) | Teks penutup yang merujuk "salah satu hal di atas" diwariskan (C) ke setiap butir, walaupun memuat hak pihak lain; sub-butir sebaris di dalam butir terakhir ikut dipecah (OY 9: 8 klausa) |
+| K4 | 5.2.3.5.3 | Contoh pembanding: WISE `tunduk pada ketentuan berikut` yang butirnya memuat hak Penyelenggara tetap dipisah |
+
+**Panjang:** 23.687 token (+948 dari v4.7). UOB MB menjadi ±99.000 token.
+
+**Hasil** (agent Sonnet, satu run per dokumen, terhadap label final di `raw/*/*.gold.json`):
+
+| Dokumen | v4.7 | **v4.8** |
+|---|---|---|
+| SEABANK MB | 99,4 | **99,6** |
+| DBS MB | 98,5 | **98,7** |
+| OY PG | 94,7 | 94,2 |
+
+- **K5 (OY 9) dan K7 (DBS `Transaksi`) kini sesuai keputusan tim.** v4.7 tidak sesuai di kedua kasus ini.
+- **OY turun 0,5** karena v4.8 juga memisah daftar sebaris tanpa titik dua di OY 10 Ganti Rugi (`… yang timbul dari (i) … (iv) …`) dan OY 16 (`… akibat dari (i) … (iii) …`). Label masih menggabungnya. Kasus ini diajukan ke tim sebagai K9.
+- **DBS 23** `Pengguna dapat mencari informasi … dengan mengakses media Pusat Pelayanan sebagai berikut: i. Website … iv. …` dipisah oleh v4.7 dan v4.8. Ini sesuai keputusan saluran, tetapi label belum memisahnya karena terlewat saat pencarian kandidat.
+
+## v4.8.1 — 21 Nov 2026: keputusan tim K9 dan DBS 23
+
+| Kasus | Aturan | Perubahan |
+|---|---|---|
+| K9 (OY 10 Ganti Rugi, OY 16) | 3.2.4.4 | Daftar sebaris yang merinci sumber, penyebab, atau ruang lingkup kewajiban ganti rugi atau pengecualian tanggung jawab (`yang timbul dari (i) …`, `akibat dari (i) …`) dipisah **walaupun tanpa `:`**. Kalimat sesudahnya yang menetapkan ketentuan baru menjadi klausa sendiri; anak kalimat yang membatasi seluruh butir diwariskan |
+| DBS 23 | 5.2.2.3, 5.2.3.1, 6.6 | Saluran untuk **memperoleh informasi** (`Pengguna dapat mencari informasi … dengan mengakses media Pusat Pelayanan sebagai berikut:`) adalah daftar informatif, jadi digabung. Saluran untuk **melaksanakan** hak/kewajiban (pengaduan, pelaporan, penutupan, pembayaran) tetap dipisah |
+
+**Panjang:** 24.012 token (+325 dari v4.8). Baris terpanjang di data (UOB MB) 99.349 token.
+
+**Hasil:** belum diuji. Uji v4.8.1 di OY dan DBS terhenti karena batas pemakaian mingguan model agent (reset 25 Nov 02.00 WIB). v4.8.1 menjadi `preparation/prompts/extraction_system.md`, dan data v0.1.5 sudah dibangun dengan prompt ini.
+
 ## Berikutnya (belum diterapkan)
 
 - **Penyesuaian label** (raw, gitignored) sesuai jawaban pengawas:

@@ -20,8 +20,10 @@ Rincian perubahan per versi, kapan dibuat, arah, dan hasilnya ada di [CHANGELOG.
 | [08-v4.md](08-v4.md) | 2026-11-20 | Draf | v3.1 + penutupan sisa P1–P4 + P5–P8, dengan P1–P4 sebagai prioritas (rincian di bawah) | Diuji di 6 dokumen sulit: F1 gabungan 95,6 (app 92,0) |
 | [09-v4.5.md](09-v4.5.md) | 2026-11-20 | Draf | v4 + jawaban pengawas R1–R21: prinsip gabung/pisah 5.1.0, daftar sebaris dipisah (3.2.4), pengantar bertitik (7.1.2.1), Definisi Khusus/Umum (4.3.4), istilah Inggris (9.6) | DBS MB (Sonnet): F1 97,6 terhadap kunci jawaban sesuai pengawas (v4: 91,9); 6 dokumen lain di CHANGELOG v4.6 |
 | [10-v4.6.md](10-v4.6.md) | 2026-11-20 | Draf | v4.5 + perbaikan dari uji 7 dokumen: daftar saluran tetap digabung (F1), 6.5 hanya di bagian definisi (F2), pewarisan tiga tingkat (F3), contoh skenario (F4), judul berakhiran `:` (F5) | SEABANK MB (Sonnet): F1 99,0 terhadap kunci sesuai pengawas (v4.5: 94,7) |
-| [11-v4.7.md](11-v4.7.md) | 2026-11-21 | Draf | v4.6 dipadatkan (26.201 → 22.739 token) tanpa mengubah isi aturan | `preparation/prompts/extraction_system.md` — **prompt untuk training v0.1.5**. 7 dokumen (Sonnet): rata-rata F1 97,5 (v4.5: 96,4) |
+| [11-v4.7.md](11-v4.7.md) | 2026-11-21 | Draf | v4.6 dipadatkan (26.201 → 22.739 token) tanpa mengubah isi aturan | 7 dokumen (Sonnet): rata-rata F1 97,5 (v4.5: 96,4) |
 | [12-v4.7.1.md](12-v4.7.1.md) | 2026-11-21 | Draf | v4.7 + daftar biaya/denda/beban yang dikenakan kepada suatu pihak dipisah (BJB D.11) | Belum diuji. **Tidak dipakai**: keputusan 21 Nov, training v0.1.5 memakai v4.7 |
+| [13-v4.8.md](13-v4.8.md) | 2026-11-21 | Draf | v4.7 + keputusan tim K1–K8 (fitur bermerek = Definisi Umum, tujuan pemrosesan data dipisah, `Yang mencakup` dipisah, kondisi milik butir terakhir, teks penutup OY) | SEABANK 99,6, DBS 98,7, OY 94,2 (v4.7: 99,4 / 98,5 / 94,7) |
+| [14-v4.8.1.md](14-v4.8.1.md) | 2026-11-21 | Draf | v4.8 + K9 (daftar sebaris ruang lingkup ganti rugi/tanggung jawab dipisah walau tanpa `:`) + saluran informasi digabung (DBS 23) | `preparation/prompts/extraction_system.md` — **prompt untuk training v0.1.5**. Belum diuji (batas pemakaian agent) |
 
 **Uji v4, DBS MB** (Sonnet, 262 klausa label, 2026-11-20):
 

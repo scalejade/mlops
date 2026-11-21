@@ -7,8 +7,11 @@
 #   python training/scripts/train.py training/configs/pbbi-extraction.yaml
 #
 # Trained on the app's own request shape (perjanjian-baku-bi, sys-prompt):
-# system = extraction_system.md verbatim (@ 1d7ccdd, 2026-11-18: rules 8.4 table rows
-# and 8.6 footnotes), user = "DOCUMENT:\n" + served PDF text (pdf_extractor.go @ e028187).
+# system = extraction_system.md verbatim = prompt v4.8.1 (2026-11-21, docs/pbbi/prompts/14-v4.8.1.md;
+# was @ 1d7ccdd until v0.1.4), user = "DOCUMENT:\n" + served PDF text (pdf_extractor.go @ e028187).
+# Labels: Legal's xlsx, overridden in 25 documents by raw/*/*.gold.json (relabel to the
+# supervisor's answers + team decisions K1-K9, docs/pbbi/relabel-v0.1.5.md). The app must serve
+# v4.8.1 with this adapter. Longest row with v4.8.1: 99,349 tokens.
 # See preparation/README.md, "The serving contract".
 
 run_name: pbbi-clause-extraction-lora-v0.1.4
