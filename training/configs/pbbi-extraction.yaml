@@ -45,9 +45,12 @@ model:
   # No packing at batch 1, so peak VRAM follows the actual row, not this number.
   # Measured on the H200: a 42k train row peaked at 74.2 GB (v0.1.1, 2026-10-17); the
   # 89,298-token UOB row peaked at 103.2 GB of 141 (memory test before v0.1.4); the
-  # v0.1.4 run itself peaked at 100.4 GB. Slope ~0.61 GB per 1k tokens, so the 99,737
-  # UOB row extrapolates to ~110 GB and 106,496 to ~114 GB. Not measured at these
-  # lengths yet. Before the real run (test.py defaults to the -it repo; pin this one):
+  # v0.1.4 run itself peaked at 100.4 GB. Slope ~0.61 GB per 1k tokens predicted ~110 GB
+  # for the 99,737 UOB row. MEASURED 2026-11-21: the memory test on the 4 longest train
+  # rows (99,755 tokens, window 106,496, 2 steps) peaked at 105.8 GB, 186.6 s/step; the
+  # v0.1.5 run itself peaked at 104.8 GB of 141 (1,658 s, ~57 s/step). ~35 GB headroom.
+  # Before a run with longer rows (test.py defaults to the -it repo; pin this one), and
+  # load the pod env first in a non-interactive ssh (set -a; . /etc/rp_environment):
   #   training/scripts/test.py --model scalejade/qwen-sea-lion-v4.5-27b-pbbi \
   #     --revision 8d32a4b9c89c9272ae8d660792182da7950955a2 \
   #     --data preparation/data/train.jsonl --max-seq-length 106496 --steps 2
