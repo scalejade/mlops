@@ -14,7 +14,7 @@
 # v4.8.1 with this adapter. Longest row with v4.8.1: 99,349 tokens.
 # See preparation/README.md, "The serving contract".
 
-run_name: pbbi-clause-extraction-lora-v0.1.4
+run_name: pbbi-clause-extraction-lora-v0.1.5
 
 model:
   # The app's extraction model on sys-prompt is scalejade/qwen-sea-lion-v4.5-27b-it
@@ -36,8 +36,9 @@ model:
   # system 26,201 tokens (+11,919 vs 1d7ccdd). Same answers, new system:
   #   train  UOB Mobile Banking  101,538   <- with v4.6; with v4.7 (22,739 tokens, 21 Nov) ~98,080
   #   train  JAGO Mobile Banking 100,704
-  # Re-check after relabeling (split items repeat the parent text, so answers grow):
-  # every row must stay <= 106,496 in build-report.json. Base serves 262,144, so this
+  # 2026-11-21 v0.1.5 build (prompt v4.8.1, 24,012 tokens; labels relabeled): longest
+  # rows 99,349 and 98,795 (train), 82,152 (eval), 92,368 (test); median ~40k.
+  # Every row must stay <= 106,496 in build-report.json. Base serves 262,144, so this
   # is a training cap only.
   # No packing at batch 1, so peak VRAM follows the actual row, not this number.
   # Measured on the H200: a 42k train row peaked at 74.2 GB (v0.1.1, 2026-10-17); the
@@ -97,6 +98,10 @@ train:
   # pushes the lowest-eval-loss checkpoint, not the last one.
   # v0.1.4: same lr, 1 epoch (29 steps, warmup 3). Estimate: ~50-70 s a step,
   # ~2-3 min an eval pass (9 rows) x 7 -> ~45-60 min.
+  # v0.1.5 (2026-11-21 build): same 58/9/18 documents and the same settings, so again
+  # 29 steps. Labels: 6,957 train clauses (+~60 vs v0.1.4), 844 eval, 2,203 test.
+  # The system prompt is now ~24k tokens (was 14k), so every row is ~10k tokens longer
+  # and steps run somewhat slower; loss is still on the answer only.
   # (A 1-row run, like v0.1.1, wants gradient_accumulation_steps 1, warmup 0,
   # eval_steps 1, save_steps 1.) Re-check against build-report.json before each run.
   per_device_train_batch_size: 1
@@ -120,7 +125,7 @@ train:
   resume: false
 
 output:
-  adapter_dir: training/adapters/pbbi-clause-extraction-lora-v0.1.4
+  adapter_dir: training/adapters/pbbi-clause-extraction-lora-v0.1.5
   push_to_hub: scalejade/pbbi-clause-extraction-lora
   private: true
 
@@ -129,7 +134,7 @@ output:
   # null  -> push to main untagged. Do not: main is whatever ran last, which is
   #          the failure the base model's pinned sha exists to avoid.
   # Resolved BEFORE the GPU work, so a taken tag costs nothing.
-  version: v0.1.4             # pinned: refused before training if the tag exists
+  version: v0.1.5             # pinned: refused before training if the tag exists
   merge_16bit: false        # adapter only; a merged 27B is 55 GB of upload
 
 tracking:
@@ -148,8 +153,9 @@ tracking:
   #   epoch  after every epoch — worth it once there are dozens of train rows
   quality_check: never
   quality_rows: 2
-  # Must exceed the longest eval answer (OVO, 34,621) or the check scores it
-  # unfinished. The endpoint's request_defaults.max_tokens (24,576) is now BELOW
+  # Must exceed the longest eval answer (OVO, 34,621; 34,958 in the v0.1.5 build) or
+  # the check scores it unfinished. Longest test answer in v0.1.5: 42,810.
+  # The endpoint's request_defaults.max_tokens (24,576) is now BELOW
   # what whole documents need (ShopeePay 30,115, OVO 34,621) and must follow.
   quality_max_new_tokens: 40960
 
