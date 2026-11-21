@@ -27,14 +27,25 @@ model:
   #   train  JAGO Mobile Banking  88,785
   #   test   SEABANK MB           82,278   (never trained on; served at 262k)
   #   eval   OVO UE Server-Based  72,085
-  # Median row ~27k (train) / ~33k (eval). 98,304 leaves ~9k for the chat template.
+  # Median row ~27k (train) / ~33k (eval).
+  # 2026-11-20: raised 98,304 -> 102,400 for prompt v4.5 (system 24,958 tokens).
+  # 2026-11-21: raised 102,400 -> 106,496 for prompt v4.6 (docs/pbbi/prompts/10-v4.6.md),
+  # system 26,201 tokens (+11,919 vs 1d7ccdd). Same answers, new system:
+  #   train  UOB Mobile Banking  101,538   <- with v4.6; with v4.7 (22,739 tokens, 21 Nov) ~98,080
+  #   train  JAGO Mobile Banking 100,704
+  # Re-check after relabeling (split items repeat the parent text, so answers grow):
+  # every row must stay <= 106,496 in build-report.json. Base serves 262,144, so this
+  # is a training cap only.
   # No packing at batch 1, so peak VRAM follows the actual row, not this number.
-  # Measured on the H200 (2026-10-17, v0.1.1): a 42k train row peaked at 74 GB of
-  # 141; the 89k rows are UNMEASURED (estimate ~100-110 GB). Before the real run:
-  #   training/scripts/test.py --data preparation/data/train.jsonl --max-seq-length 98304 --steps 2
+  # Measured on the H200: a 42k train row peaked at 74.2 GB (v0.1.1, 2026-10-17); the
+  # 89,298-token UOB row peaked at 103.2 GB of 141 (memory test before v0.1.4); the
+  # v0.1.4 run itself peaked at 100.4 GB. Slope ~0.61 GB per 1k tokens, so ~98k
+  # (UOB with prompt v4.7) extrapolates to ~109 GB and 106,496 to ~114 GB. Not measured
+  # at these lengths yet. Before the real run:
+  #   training/scripts/test.py --data preparation/data/train.jsonl --max-seq-length 106496 --steps 2
   # On OOM, window the longest rows (build.py --max-row-tokens 80000) rather than
   # 4-bit: QLoRA is reported to degrade on this hybrid-attention architecture.
-  max_seq_length: 98304
+  max_seq_length: 106496
 
   load_in_4bit: false       # 55.56 GB of weights on 141 GB; see above before turning this on
   dtype: bfloat16           # qwen3_5's gated-deltanet layers NaN their grads in fp16

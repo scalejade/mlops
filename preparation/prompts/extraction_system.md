@@ -46,15 +46,7 @@ Karena itu, ikuti **SELURUH** aturan di bawah ini secara berurutan dan tanpa kec
 
 ## 2.3. Pengecualian: notasi berlabel yang BUKAN header
 
-2.3.1. Teks yang diawali notasi bergaya header (huruf atau angka berlabel seperti `a.`, `b.`, `(1)`, `(a)`) **tidak otomatis dianggap header** apabila teks tersebut memenuhi kriteria klausa, yaitu memiliki struktur kalimat lengkap (subjek, predikat, dan objek/keterangan — lihat aturan 3.2.2.1). Hal ini berlaku meskipun notasinya identik dengan notasi yang dipakai header di bagian lain dokumen.
-
-2.3.2. Apabila notasi yang sama dipakai baik untuk header maupun untuk penomoran klausa anak di bagian lain, maka **pembeda utamanya adalah kelengkapan struktur kalimat** (aturan 2.1.1), **bukan bentuk notasinya**. Notasi hanya menjadi indikator level cakupan (aturan 3.4.4) **setelah** suatu teks lolos uji header pada aturan 2.1–2.2.
-
-2.3.3. Contoh:
-
-> `(a) akun Anda dapat menampung saldo OVO Cash dengan batas maksimum...`
-
-Teks di atas **BUKAN** header baru yang membatasi cakupan, meskipun berlabel `(a)` yang mirip dengan notasi header `a. OVO Club`. Alasannya: teks tersebut adalah kalimat lengkap dan memenuhi kriteria klausa, bukan kriteria header.
+2.3.1. Teks berlabel bergaya header (`a.`, `b.`, `(1)`, `(a)`) **bukan** header apabila berupa kalimat lengkap yang memenuhi kriteria klausa (aturan 3.2.2.1), walaupun notasinya sama dengan notasi header di bagian lain. Pembedanya adalah **kelengkapan struktur kalimat**, bukan bentuk notasi; notasi hanya menunjukkan level cakupan (aturan 3.4.4). Contoh: `(a) akun Anda dapat menampung saldo OVO Cash dengan batas maksimum...` adalah klausa, bukan header baru yang membatasi cakupan, walaupun mirip header `a. OVO Club`.
 
 ---
 
@@ -86,13 +78,15 @@ Penanda pada aturan 3.2.2.3 tidak dengan sendirinya menjadikan paragraf sebagai 
 - 3.2.3.3. Jika tidak ada perbedaan poin atau penomoran yang jelas, biasanya klausa anak lebih menjorok ke dalam (*indented*) dibandingkan klausa induk; **ATAU**
 - 3.2.3.4. Jika tidak terdapat penomoran maupun indentasi yang membedakan, dan pembeda satu-satunya adalah baris kosong antar paragraf, maka **setiap paragraf di bawah klausa induk dianggap sebagai klausa anak tersendiri** — sepanjang konteks setiap paragraf berbeda satu sama lain namun tetap membahas topik yang sama dengan klausa induknya. **Perhatian:** pastikan konteks tiap paragraf benar-benar berbeda, bukan sekadar pemenggalan kalimat yang saling berkaitan; **ATAU**
 - 3.2.3.5. Jika struktur induk-anak tidak dapat ditentukan karena format yang buruk dan struktur yang tidak konsisten, gunakan pertimbangan konteks. Klausa anak harus menjelaskan detail dari klausa induk.
+- 3.2.3.6. **Batas akhir sub-daftar.** Aturan ini hanya berlaku apabila **kedua** syarat berikut terpenuhi: (1) sub-daftar memakai **skema penomoran yang sama** dengan daftar di atasnya (misalnya angka `1`, `2`, … di bawah butir yang juga berangka) tanpa indentasi pembeda, sehingga batas sub-daftar tidak terlihat dari penandanya; **dan** (2) butir-butir awal sub-daftar berupa **penggalan** yang melanjutkan kalimat induknya (misalnya kalimat induk diakhiri `yang berkaitan dengan :` dan butirnya berupa frasa benda). Sub-daftar tersebut berakhir pada butir terakhir yang masih melanjutkan kalimat induk. Butir berikutnya yang berupa kalimat lengkap tersendiri dan tidak lagi melanjutkan kalimat induk tersebut — walaupun nomornya melanjutkan urutan sub-daftar — **bukan** klausa anak, melainkan klausa tersendiri (aturan 3.3.3) yang tidak mewarisi kalimat induk sub-daftar. Contoh: `4 Dalam hal terjadi perubahan kebijakan … yang berkaitan dengan :` → `1 Administrasi dan operasional Bank.` … `5 Pembatasan-pembatasan dalam melaksanakan instruksi …` → `6 Dengan memberikan pemberitahuan sebelumnya …, Bank berhak mengubah …` → `7 Nasabah memberi wewenang …`: butir `1`–`5` adalah anak butir `4` dan diuji menurut bagian 5–6, sedangkan butir `6` dan seterusnya masing-masing klausa sendiri. Apabila sejak butir pertama seluruh butir di bawah kalimat induk berupa kalimat lengkap (misalnya di bawah `Berikut ini adalah proses …:`), aturan ini **tidak** berlaku: seluruh butir hingga header berikutnya adalah klausa anak dari kalimat induk tersebut. Aturan ini juga **tidak** berlaku apabila penanda sub-daftar berbeda dari penanda daftar di atasnya: pada `5.25 … maka Anda memahami dan bersedia untuk:` → `a. Menggunakan Proxy Address …` → `b. Untuk menggunakan Proxy Address, Anda wajib …` → … → `h. …`, **seluruh** butir `a`–`h` adalah klausa anak `5.25` dan mewarisi kalimat induknya, walaupun butir `b`–`h` berupa kalimat lengkap.
 
-3.2.4. **Butir sebaris bukan klausa anak.** Penanda butir (`(i)`, `(ii)`, `(a)`, `a)`, `1)`, dan sejenisnya) yang ditulis **di dalam satu kalimat atau paragraf** — menyambung teks sebelumnya, bukan mengawali baris baru sebagai daftar — **bukan** penanda klausa anak.
+3.2.4. **Butir sebaris tetap klausa anak.** Penanda butir (`(i)`, `(ii)`, `(a)`, `a)`, `1)`, dan sejenisnya) yang ditulis **di dalam satu kalimat atau paragraf** — menyambung teks sebelumnya, bukan mengawali baris baru — adalah penanda klausa anak apabila didahului teks pengantar yang memenuhi kriteria klausa induk (aturan 3.2.2), misalnya diakhiri `:` atau memuat `berikut`.
 
-- 3.2.4.1. Kalimat atau paragraf tersebut, beserta seluruh butir sebarisnya, adalah **satu klausa**. Klausa ini **tidak** diuji gabung/pisah menurut bagian 5–6, apa pun isinya — termasuk apabila butirnya berupa kondisi alternatif (`salah satu`, `atau`), larangan, hak, atau kewajiban.
-- 3.2.4.2. Cara mengenali: butir pertama berada pada baris yang sama dengan kalimat pengantarnya, dan butir-butir dipisahkan `;` atau `,` di dalam aliran kalimat yang sama. Pemenggalan baris akibat lebar halaman tidak mengubah status ini.
-- 3.2.4.3. `clause_text` disalin apa adanya: penanda sebaris tidak dipindahkan ke baris baru, tidak ditambahkan sebagai segmen `pasal`, dan kalimat sebelum maupun sesudah daftar sebaris dalam paragraf yang sama tetap menjadi bagian klausa tersebut.
-- 3.2.4.4. Contoh: `Anda setuju bahwa Anda tidak akan melakukan salah satu dari berikut saat menggunakan Layanan: (i) berupaya mengakses …; (ii) mengganggu …; (iii) mengumpulkan …` → **satu klausa**, meskipun memuat `salah satu` dan setiap butirnya berupa larangan. Sebaliknya, daftar yang setiap butirnya mengawali baris baru tetap merupakan klausa anak (aturan 3.2.3) dan diuji menurut bagian 5–6.
+- 3.2.4.1. Daftar sebaris semacam ini diuji gabung/pisah menurut bagian 5–6 **sama persis** dengan daftar yang setiap butirnya mengawali baris baru. Letak penanda (sebaris atau baris baru) dan pemenggalan baris akibat lebar halaman tidak memengaruhi hasil.
+- 3.2.4.2. Apabila dipisah: `clause_text` setiap klausa = teks pengantar sebelum penanda pertama, baris baru, lalu penanda beserta teks butirnya (aturan 7.4). Penanda dicatat sebagai segmen `pasal` (misalnya `…|2|i`, `…|2|ii`). Teks sesudah butir terakhir di paragraf yang sama diperlakukan menurut aturan 7.6 dan 3.5.
+- 3.2.4.3. Apabila digabung: paragraf disalin apa adanya sebagai satu klausa, penanda sebaris tidak dipindahkan ke baris baru.
+- 3.2.4.4. Penanda yang berada **di tengah kalimat** tanpa teks pengantar berciri klausa induk (misalnya `… dengan (i) menolak Transaksi atau (ii) menunda Transaksi, sesuai kebijakan Bank.`) bukan daftar klausa anak; kalimat tersebut tetap satu klausa (aturan 3.3.6).
+- 3.2.4.5. Contoh: `Anda tidak dapat: (i) menyalin, memodifikasi …; (ii) mendistribusikan, menampilkan secara umum …` → kalimat induk memuat larangan dan setiap butir adalah larangan tersendiri → **PISAH** menjadi `Anda tidak dapat:\n(i) menyalin, memodifikasi …;` dan `Anda tidak dapat:\n(ii) mendistribusikan, …`. Demikian pula `Anda setuju bahwa Anda tidak akan melakukan salah satu dari berikut …: (i) berupaya mengakses …; (ii) …` → **PISAH** per butir, dan `Nasabah harus melaporkan sesegera mungkin ketika Nasabah mencurigai atau mengetahui: (a) bahwa Perangkat atau Kode Keamanan telah hilang …; (b) bahwa terdapat pihak ketiga yang mengetahui Kode Keamanan; atau (c) …` → kewajiban dengan kondisi alternatif → **PISAH** menjadi tiga klausa; kalimat sesudah butir `(c)` yang menetapkan ketentuan baru (`Apabila Nasabah menginformasikan kami …, kami dapat meminta …`) menjadi klausa sendiri (aturan 3.5).
 
 ## 3.3. Klausa independen
 
@@ -109,7 +103,7 @@ Penanda pada aturan 3.2.2.3 tidak dengan sendirinya menjadikan paragraf sebagai 
 
 3.3.5. **Jangan pernah** menuliskan seluruh isi suatu bagian atau pasal sebagai satu klausa hanya karena bagian tersebut berisi beberapa butir atau paragraf. Penggabungan klausa independen hanya diperbolehkan untuk Definisi Umum yang **bersebelahan** (aturan 6.5); Definisi Khusus (aturan 4.3.2–4.3.3) tetap menjadi klausa sendiri, sehingga suatu bagian definisi **tidak pernah** ditulis seluruhnya sebagai satu klausa kecuali seluruh isinya memang Definisi Umum. Teks yang merupakan lanjutan kalimat (aturan 3.3.4 dan 3.5.2.1) bukan klausa independen baru. Setiap bagian dinilai sendiri; cara memecah bagian sebelumnya tidak menentukan cara memecah bagian berikutnya.
 
-3.3.6. **Satu paragraf tidak dipecah.** Batas antar-klausa hanya berada pada awal butir berpenanda atau awal paragraf baru (aturan 3.3.2). Kalimat-kalimat di dalam satu paragraf — termasuk kalimat yang menjelaskan, membatasi, atau melanjutkan kalimat sebelumnya — tetap berada dalam **satu klausa**, meskipun masing-masing kalimat memuat hak atau kewajiban tersendiri. Pemenggalan baris akibat lebar halaman bukan awal paragraf baru. Aturan ini tidak mengubah aturan 3.3.4: paragraf yang memang terpisah tetap menjadi klausa sendiri.
+3.3.6. **Satu paragraf tidak dipecah.** Batas antar-klausa hanya berada pada awal butir berpenanda (termasuk butir sebaris yang dipisah menurut aturan 3.2.4) atau awal paragraf baru (aturan 3.3.2). Kalimat-kalimat di dalam satu paragraf — termasuk kalimat yang menjelaskan, membatasi, atau melanjutkan kalimat sebelumnya — tetap berada dalam **satu klausa**, meskipun masing-masing kalimat memuat hak atau kewajiban tersendiri. Pemenggalan baris akibat lebar halaman bukan awal paragraf baru. Aturan ini tidak mengubah aturan 3.3.4: paragraf yang memang terpisah tetap menjadi klausa sendiri.
 
 3.3.7. **Butir setingkat selalu klausa baru.** Butir yang penandanya setingkat dengan klausa induk atau dengan butir mandiri di atasnya (misalnya `15.3` setelah daftar di bawah `15.2`, atau `9)` setelah `8)`) selalu memulai klausa baru. Butir tersebut **tidak pernah** menjadi teks penutup (aturan 7.6), lanjutan, atau klausa anak dari butir sebelumnya.
 
@@ -163,55 +157,32 @@ Penanda pada aturan 3.2.2.3 tidak dengan sendirinya menjadikan paragraf sebagai 
   - 3.5.5.2.2. Apabila **berbeda** — misalnya klausa induk dan seluruh anaknya membebankan pengakuan/kewajiban kepada Konsumen, sedangkan klausa ambigu menegaskan **hak** Penyelenggara — → **(D)**.
 - 3.5.5.3. **Penentu terakhir** — apabila aturan 3.5.5.1 dan 3.5.5.2 belum menghasilkan kesimpulan, tanyakan: dapatkah klausa ambigu dinilai kepatuhannya secara mandiri tanpa konteks klausa induk? Apabila **YA** → **(D)**; apabila **TIDAK** → **(A)**.
 
-3.5.6. **Penentuan `pasal`.**
+3.5.6. **Penentuan `pasal`.** **(A)** dan **(C)** tidak menghasilkan `pasal` baru. Untuk **(B)** gunakan nomor berikutnya pada level klausa anak, untuk **(D)** nomor berikutnya pada level klausa induk (*nomor lanjutan alami*). Contoh: struktur `4.1` yang diikuti header `5.` → klausa **(D)** menjadi `4. PERUBAHAN JASA ELEKTRONIK|4.2`.
 
-- 3.5.6.1. **(A)** dan **(C)** tidak menghasilkan `pasal` baru.
-- 3.5.6.2. Tentukan terlebih dahulu **nomor lanjutan alami**: untuk **(B)**, nomor berikutnya pada level klausa anak; untuk **(D)**, nomor berikutnya pada level klausa induk.
-- 3.5.6.3. **Uji tumbukan nomor.** Periksa apakah nomor lanjutan alami tersebut **sudah dipakai** oleh klausa mana pun yang muncul **setelah** klausa ambigu di dalam dokumen.
-  - 3.5.6.3.1. Apabila **belum dipakai**, gunakan nomor lanjutan alami tersebut. Contoh: struktur memuat `4.1` dan diikuti header `5.`, sehingga klausa ambigu yang diklasifikasikan **(D)** menjadi `4.2` → `pasal` = `4. PERUBAHAN JASA ELEKTRONIK|4.2`.
-  - 3.5.6.3.2. Apabila **sudah dipakai**, nomor tersebut **DILARANG** digunakan. Sebagai gantinya, tiru bentuk penomoran induk-anak: pakai `pasal` klausa bernomor tepat sebelum klausa ambigu, lalu tambahkan segmen baru setelah pemisah `|`. Contoh: klausa ambigu setelah `2.9` yang diikuti `2.10` di dokumen **tidak** boleh menjadi `2.10`, melainkan `2.9|1`.
-  - 3.5.6.3.3. Segmen hasil generate pada aturan 3.5.6.3.2 selalu ditulis dengan **angka biasa** (`1`, `2`, `3`, …) dan **tidak boleh bertumbukan dengan penanda klausa anak yang sudah ada** pada level tersebut. Tentukan angka awalnya menurut notasi yang dipakai klausa anak di dokumen:
-    - 3.5.6.3.3.1. Klausa anak memakai **huruf** (`a.`, `b.`, `c.`) → tidak ada tumbukan; mulai dari `1`. Contoh: klausa `2.9` yang anaknya bernotasi `a.` sampai `d.` menghasilkan segmen `1`, sehingga `pasal` = `2.9|1`.
-    - 3.5.6.3.3.2. Klausa anak memakai **angka biasa** (`1.`, `2.`, `3.`) → mulai dari angka berikutnya setelah angka tertinggi yang dipakai. Contoh: anak terakhir bernotasi `3.` menghasilkan segmen `4`.
-    - 3.5.6.3.3.3. Klausa anak memakai **angka romawi** (`i.`, `ii.`, `iii.`) → perlakukan angka romawi tersebut sebagai nilai angka, lalu mulai dari angka berikutnya setelah nilai tertinggi. Contoh: anak terakhir bernotasi `iii.` (bernilai 3) menghasilkan segmen `4`. Hal ini sekaligus mencegah kekeliruan pembacaan antara segmen `1` dan penanda `i.`.
-    - 3.5.6.3.3.4. Klausa induk **tidak memiliki** klausa anak berpenanda → mulai dari `1`.
-- 3.5.6.4. Penomoran menurut aturan 3.5.6.3.2 **hanya** memengaruhi field `pasal`. Klausa yang diklasifikasikan **(D)** tetap merupakan klausa independen, sehingga konten klausa induk **TIDAK** diwariskan ke dalam `clause_text`-nya meskipun `pasal`-nya berbentuk seperti klausa anak.
+- 3.5.6.1. **Uji tumbukan nomor.** Apabila nomor lanjutan alami **sudah dipakai** oleh klausa mana pun sesudahnya di dokumen, nomor tersebut **DILARANG** dipakai. Gunakan `pasal` klausa bernomor tepat sebelum klausa ambigu, lalu tambahkan segmen baru setelah `|`. Contoh: klausa ambigu setelah `2.9` yang diikuti `2.10` **bukan** `2.10`, melainkan `2.9|1`.
+- 3.5.6.2. Segmen buatan tersebut selalu **angka biasa** dan tidak boleh bertumbukan dengan penanda anak yang sudah ada: anak berhuruf (`a.`–`d.`) atau tanpa penanda → mulai `1`; anak berangka atau romawi → nilai tertinggi + 1 (anak terakhir `3.` atau `iii.` → `4`).
+- 3.5.6.3. Penomoran ini **hanya** memengaruhi `pasal`. Klausa **(D)** tetap klausa independen: kalimat induk **TIDAK** diwariskan ke `clause_text`-nya meskipun `pasal`-nya berbentuk seperti klausa anak.
 
-3.5.7. **Contoh penerapan 1** — klausa induk berupa penggalan (Syarat dan Ketentuan *Internet Banking* Standard Chartered):
+3.5.7. **Contoh penerapan 1** (kewajiban berbeda dari hak di induk): `4.1. Bank berhak untuk:` → `4.1.1. Melakukan perawatan secara teratur pada Jasa Elektronik...` → `4.1.2. Mengubah cara operasi, menambah, mengganti … fasilitas yang tersedia pada Jasa Elektronik.` → paragraf `Bank akan memberikan pemberitahuan 30 (tiga puluh) hari kerja sebelumnya sebelum adanya perubahan atau penghapusan Jasa Elektronik.` → header `5. PELAYANAN PIRANTI LUNAK`.
+- Uji 1: paragraf tidak menjelaskan seluruh butir sebagai satu kesatuan → bukan **(C)**. Uji 2: kalimat mandiri. Uji 3: induk memberi **hak** Bank, paragraf membebankan **kewajiban** Bank → **(D)**. `4.2` belum terpakai → `pasal` = `4. PERUBAHAN JASA ELEKTRONIK|4.2`.
+
+3.5.8. **Contoh penerapan 2** (induk `bahwa`, nomor lanjutan sudah terpakai): `2.9 Apabila Anda memilih untuk mengaktifkan dan menggunakan fitur PIN-less..., Anda mengakui dan menyetujui bahwa:` → `a.`–`d.` (pengakuan dan kewajiban **Anda**) → paragraf `Kami dapat, tanpa pemberitahuan sebelumnya dan atas kebijakan kami sendiri, menangguhkan, menunda, menolak, atau membatasi Transaksi apa pun...` → `2.10 Dalam rangka memenuhi ketentuan …`.
+- Uji 1: menambahkan ketentuan baru → bukan **(C)**. Uji 2: kalimat mandiri; penyambungan `…menyetujui bahwa: Kami dapat…` yang terasa gramatikal **tidak** menjadikannya klausa anak (aturan 3.5.4.3). Uji 3: menegaskan **hak Kami** → **(D)**. `2.10` sudah terpakai → `pasal` = `2.9|1` (anak berhuruf, segmen mulai `1`).
+
+3.5.9. **Contoh penerapan 3** — teks penutup **(C)** berupa kalimat lengkap:
 
 ```
-4.1. Bank berhak untuk:
-4.1.1. Melakukan perawatan secara teratur pada Jasa Elektronik...
-4.1.2. Mengubah cara operasi, menambah, mengganti atau dengan cara lain mengubah,
-       menghapus atau menunda fasilitas yang tersedia pada Jasa Elektronik.
-Bank akan memberikan pemberitahuan 30 (tiga puluh) hari kerja sebelumnya sebelum
-adanya perubahan atau penghapusan Jasa Elektronik.
-5. PELAYANAN PIRANTI LUNAK
+21. Berakhirnya Aplikasi digibank Mobile Banking
+Aplikasi digibank Mobile Banking akan berakhir atau dapat diakhiri apabila:
+1. Pengguna meng-uninstall Aplikasi digibank Mobile Banking.
+2. Bank menghentikan pemberian jasa Aplikasi digibank Mobile Banking. ...
+Sehubungan dengan berakhirnya atau diakhirinya Aplikasi digibank Mobile Banking
+tersebut, Pengguna setuju untuk membebaskan Bank dari segala tuntutan ...
 ```
 
-- 3.5.7.1. Uji 1: klausa ambigu tidak menjelaskan `4.1.1` (perawatan) maupun seluruh daftar sebagai satu kesatuan → bukan **(C)**.
-- 3.5.7.2. Uji 2: `Bank akan memberikan pemberitahuan…` memiliki subjek dan predikat sendiri → kalimat mandiri → tersisa **(A)**, **(B)**, **(D)**.
-- 3.5.7.3. Uji 3: klausa induk memberikan **hak** kepada Bank (`Bank berhak untuk`), sedangkan klausa ambigu membebankan **kewajiban** kepada Bank → sifat normatif berbeda → **(D)**.
-- 3.5.7.4. `pasal`: nomor lanjutan alami `4.2` belum dipakai (setelahnya langsung header `5.`) → `pasal` = `4. PERUBAHAN JASA ELEKTRONIK|4.2`.
-
-3.5.8. **Contoh penerapan 2** — klausa induk berupa kalimat lengkap dengan `bahwa`, dan nomor lanjutan alami sudah terpakai:
-
-```
-2.9 Apabila Anda memilih untuk mengaktifkan dan menggunakan fitur PIN-less...,
-    Anda mengakui dan menyetujui bahwa:
-a.  mengaktifkan Transaksi PIN-less dapat meningkatkan risiko penggunaan tidak sah...
-b.  setiap Transaksi yang dilakukan menggunakan fitur tersebut dianggap sah...
-c.  setelah Transaksi tersebut selesai, Transaksi tersebut tidak dapat dibatalkan...
-d.  Anda wajib sepenuhnya terikat dan bertanggung jawab atas setiap Transaksi...
-Kami dapat, tanpa pemberitahuan sebelumnya dan atas kebijakan kami sendiri,
-menangguhkan, menunda, menolak, atau membatasi Transaksi apa pun...
-2.10 Dalam rangka memenuhi ketentuan peraturan perundangan yang berlaku...
-```
-
-- 3.5.8.1. Uji 1: klausa ambigu tidak menjelaskan atau membatasi butir `a`–`d` sebagai satu kesatuan, melainkan menambahkan ketentuan baru → bukan **(C)**.
-- 3.5.8.2. Uji 2: `Kami dapat… menangguhkan…` memiliki subjek dan predikat sendiri → kalimat mandiri. Perhatikan aturan 3.5.4.3: penyambungan `…menyetujui bahwa: Kami dapat…` terasa gramatikal, namun hal itu **tidak** menjadikannya klausa anak.
-- 3.5.8.3. Uji 3: klausa induk dan butir `a`–`d` seluruhnya membebankan pengakuan dan kewajiban kepada **Anda** (Konsumen), sedangkan klausa ambigu menegaskan **hak** **Kami** (Penyelenggara) → sifat normatif dan pihaknya berbeda → **(D)**.
-- 3.5.8.4. `pasal`: nomor lanjutan alami `2.10` **sudah dipakai** oleh klausa berikutnya di dokumen (aturan 3.5.6.3.2), sehingga klausa ambigu menjadi `2.9|1`. Butir anak memakai huruf `a`–`d`, sehingga segmen angka `1` tidak bertumbukan (aturan 3.5.6.3.3.1).
+- 3.5.9.1. Uji 1: `Sehubungan dengan berakhirnya atau diakhirinya Aplikasi … tersebut` merujuk pada pengakhiran Aplikasi karena **setiap** sebab di atasnya, bukan hanya butir `1` atau `2` → **(C)**, walaupun berupa kalimat lengkap yang memuat kewajiban.
+- 3.5.9.2. Hasil: kalimat tersebut diwariskan ke **setiap** klausa anak (aturan 7.6), sehingga terdapat dua klausa: `Aplikasi … apabila:\n1. Pengguna meng-uninstall …\nSehubungan dengan …` dan `Aplikasi … apabila:\n2. Bank menghentikan …\nSehubungan dengan …`. Teks penutup tidak membentuk klausa sendiri dan tidak hanya ditempelkan ke butir tepat di atasnya.
+- 3.5.9.3. Sebaliknya, paragraf yang menetapkan ketentuan baru tanpa merujuk seluruh butir di atasnya — misalnya `Tanpa mengesampingkan hak-hak Bank …, jika Pemegang Kartu tidak dapat membayar …` setelah butir `12)` — adalah klausa sendiri **(D)**.
 
 ---
 
@@ -235,19 +206,20 @@ Setiap klausa harus diklasifikasikan ke dalam salah satu kategori berikut. Klasi
 
 - 4.3.2.1. Konsumen/Nasabah/Pengguna; **atau**
 - 4.3.2.2. Penyelenggara Jasa Pembayaran/Bank/pihak yang menerbitkan dokumen Perjanjian Baku; **atau**
-- 4.3.2.3. badan usaha lain yang disebut dengan nama dirinya, misalnya penerbit, mitra, atau afiliasi (definisi berbentuk `"X" adalah PT …`).
+- 4.3.2.3. badan usaha lain yang disebut dengan nama dirinya, misalnya penerbit, mitra, atau afiliasi (definisi berbentuk `"X" adalah PT …`). Istilah **peran umum** yang dapat merujuk ke lebih dari satu pihak — misalnya `"Penerbit" adalah Bank atau Lembaga Selain Bank yang menerbitkan …` — **bukan** Definisi Khusus, melainkan Definisi Umum, walaupun definisinya menyebut nama Penyelenggara sebagai salah satu contoh.
 
 4.3.3. **Definisi Khusus — Ruang Lingkup Produk dan/atau Layanan**: definisi yang menyebutkan pengertian dari:
 
 - 4.3.3.1. produk sistem pembayaran resmi Bank Sentral (*mobile banking*, kartu debit, kartu kredit, *internet banking*, uang elektronik berbasis chip, uang elektronik berbasis server, *e-Wallet*); **atau**
 - 4.3.3.2. Layanan Transfer Dana adalah rangkaian kegiatan yang dimulai dengan perintah dari Pengirim Asal yang bertujuan memindahkan sejumlah Dana kepada Penerima yang disebutkan dalam Perintah Transfer Dana sampai dengan diterimanya Dana oleh Penerima; **atau**
-- 4.3.3.3. Layanan Pembayaran adalah kegiatan pemindahan sejumlah dana dari Konsumen kepada penyedia barang dan/atau jasa (merchant) atau pihak penerima lainnya sebagai pemenuhan kewajiban atas suatu transaksi, yang dilakukan melalui instrumen dan/atau kanal Sistem Pembayaran yang disediakan oleh Penyelenggara (contoh: pembayaran QRIS di merchant, pembayaran tagihan/biller, pembayaran menggunakan kartu debit/kredit di titik penjualan); **atau**
-- 4.3.3.4. nama produk, aplikasi, atau fitur layanan milik Penyelenggara yang termasuk salah satu kategori aturan 4.3.3.1–4.3.3.3 (misalnya nama aplikasi *mobile banking*, nama dompet elektronik, atau nama varian kartu bermerek).
+- 4.3.3.3. Layanan Pembayaran adalah kegiatan pemindahan sejumlah dana dari Konsumen kepada penyedia barang dan/atau jasa (merchant) atau pihak penerima lainnya sebagai pemenuhan kewajiban atas suatu transaksi, yang dilakukan melalui instrumen dan/atau kanal Sistem Pembayaran yang disediakan oleh Penyelenggara (contoh: pembayaran QRIS di merchant, pembayaran menggunakan kartu debit/kredit di titik penjualan); **atau**
+- 4.3.3.4. nama produk, aplikasi, atau fitur layanan **bermerek** milik Penyelenggara yang termasuk salah satu kategori aturan 4.3.3.1–4.3.3.3 (misalnya nama aplikasi *mobile banking*, nama dompet elektronik, atau nama varian kartu bermerek). Fitur yang dinamai secara umum, bukan dengan merek (misalnya `Transfer Terjadwal`, `Pembayaran Tagihan`), adalah Definisi Umum (aturan 4.3.4.2).
 
-4.3.4. **Batas Definisi Khusus produk.** Definisi Khusus menurut aturan 4.3.3 hanya mencakup: (a) kategori produk itu sendiri (misalnya `Mobile Banking`, `Kartu Kredit`, `Uang Elektronik`); (b) nama produk, aplikasi, atau layanan **bermerek** milik Penyelenggara (misalnya `Livin'`, `Sakuku`, `JakOne Pay`, `OCTO Clicks`); dan (c) Layanan Transfer Dana dan Layanan Pembayaran (aturan 4.3.3.2–4.3.3.3).
+4.3.4. **Batas Definisi Khusus produk.** Definisi Khusus menurut aturan 4.3.3 hanya mencakup: (a) kategori produk itu sendiri (misalnya `Mobile Banking`, `Kartu Kredit`, `Uang Elektronik`); (b) nama produk, aplikasi, atau layanan **bermerek** milik Penyelenggara (misalnya `Livin'`, `Sakuku`, `JakOne Pay`, `OCTO Clicks`); dan (c) Layanan Transfer Dana dan Layanan Pembayaran (aturan 4.3.3.2–4.3.3.3), termasuk istilah yang mendefinisikan **transaksi pembayaran atau transaksi keuangan itu sendiri** sebagai satu kategori, misalnya `Transaksi QRIS` (transaksi pembayaran berdasarkan QRIS) dan `Transaksi Finansial` (transaksi yang melibatkan dana Nasabah).
 
-- 4.3.4.1. Istilah untuk **komponen, sarana pengaman, sarana akses, atau atribut** produk adalah **Definisi Umum** (aturan 4.3.1), walaupun istilah tersebut memuat kata produk — misalnya `Rekening`, `Kartu Utama`, `Kartu Tambahan`, `PIN`, `Password`, `User ID`, `OTP`, `Token`, `Kode QR`, `QRIS`, `Limit`, `Saldo`, `Biaya`, `Bunga`, `Tagihan`, `Tanggal Jatuh Tempo`, `Hari Kerja`, `Perangkat`.
-- 4.3.4.2. Definisi Umum tersebut digabung dengan Definisi Umum yang bersebelahan (aturan 6.5); Definisi Khusus tetap menjadi klausa sendiri.
+- 4.3.4.1. Istilah untuk **komponen, sarana pengaman, sarana akses, atau atribut** produk adalah **Definisi Umum** (aturan 4.3.1), walaupun istilah tersebut memuat kata produk — misalnya `Rekening`, `Rekening Deposit`, `Kartu Utama`, `Kartu Tambahan`, `PIN`, `Password`, `User ID`, `OTP`, `Token`, `Kode QR`, `Limit`, `Saldo`, `Biaya`, `Bunga`, `Tagihan`, `Tanggal Jatuh Tempo`, `Hari Kerja`, `Perangkat`.
+- 4.3.4.2. Istilah untuk **standar atau instrumen** pembayaran (misalnya `QRIS` sebagai standar QR Code Pembayaran) dan untuk **fitur, menu, atau cara pelaksanaan** transaksi tertentu (misalnya `Pembayaran Tagihan`, `Transfer Terjadwal`, `Transaksi Berkala`) juga **Definisi Umum**. Bedakan dengan aturan 4.3.4 (c): `QRIS` → Umum, tetapi `Transaksi QRIS` → Khusus; `Transaksi Berkala` → Umum, tetapi `Transaksi Finansial` → Khusus.
+- 4.3.4.3. Definisi Umum tersebut digabung dengan Definisi Umum yang bersebelahan (aturan 6.5); Definisi Khusus tetap menjadi klausa sendiri.
 
 ---
 
@@ -257,20 +229,19 @@ Pengujian di bawah ini menghasilkan salah satu dari dua klasifikasi: **(1) HARUS
 
 ## 5.1. Cara menerapkan urutan pengujian
 
-5.1.1. Terapkan aturan 5.2 terlebih dahulu **secara holistik** terhadap keseluruhan struktur klausa induk-anak sebagai satu kesatuan. Jika seluruh struktur merupakan **prosedur** sesuai definisi aturan 5.2.2, **ATAU** daftar informatif sesuai aturan 5.2.3, **ATAU** daftar unsur wajib sesuai aturan 5.2.1, **ATAU** struktur bertujuan tunggal sesuai aturan 5.2.4, maka seluruh struktur langsung diklasifikasikan sebagai **(1) HARUS-DIGABUNG** (aturan 6.1), dan pengujian 5.3–5.5 tidak perlu diterapkan lagi per klausa anak. Daftar kondisi, daftar hak/kewajiban/larangan, dan daftar pernyataan **bukan** prosedur (aturan 5.2.2.3); jika ragu apakah suatu daftar merupakan prosedur, perlakukan sebagai **bukan** prosedur dan lanjutkan ke aturan 5.1.2.
+5.1.0. **Prinsip dasar gabung/pisah.** Seluruh aturan bagian 5–6 menerapkan satu prinsip berikut:
 
-5.1.2. Jika aturan 5.2 tidak menghasilkan kesimpulan yang jelas pada tingkat holistik (yaitu struktur tersebut tidak secara jelas merupakan satu prosedur tunggal), maka aturan 5.3–5.5 **WAJIB** diterapkan secara individual terhadap **setiap** klausa anak, menghasilkan klasifikasi (1) atau (2) untuk masing-masing klausa anak.
+- 5.1.0.1. **PISAH** apabila kalimat induk (dibaca bersama butirnya, aturan 5.1.5) memuat hak atau kewajiban, **DAN** setiap butir merupakan **opsi** yang dapat berdiri sendiri — kemungkinan, alternatif, skenario, atau hak/kewajiban/larangan tersendiri yang masing-masing dapat terjadi, dilaksanakan, dituntut, atau dilanggar sendiri.
+- 5.1.0.2. **GABUNG** apabila butir-butirnya merupakan **satu kesatuan** yang tidak dapat dilepas satu sama lain — syarat yang dipenuhi bersama, ciri dari satu objek, langkah suatu prosedur — **ATAU** hanya berisi informasi tanpa beban hak atau kewajiban.
+- 5.1.0.3. Aturan 5.1.1–6.6 merinci prinsip ini. Apabila suatu struktur tidak diatur secara tegas oleh aturan-aturan tersebut, putuskan berdasarkan prinsip ini.
 
-5.1.3. Hasil klasifikasi per-klausa-anak pada 5.1.2 menjadi dasar penerapan Aturan Pembagian Klausa Induk-Anak (bagian 6), yaitu memeriksa apakah seluruh klausa anak homogen (aturan 6.1.1 atau 6.2.1) atau campuran (aturan 6.3).
+5.1.1. **Uji holistik terlebih dahulu.** Terapkan aturan 5.2 terhadap keseluruhan struktur induk-anak. Apabila struktur merupakan prosedur (5.2.2), daftar informatif (5.2.3), daftar unsur wajib (5.2.1), atau struktur bertujuan tunggal (5.2.4), seluruh struktur **(1) HARUS-DIGABUNG** (aturan 6.1) dan uji 5.3–5.5 tidak diterapkan per klausa anak. Daftar kondisi, hak/kewajiban/larangan, pilihan, dan pernyataan **bukan** prosedur (aturan 5.2.2.3); jika ragu apakah suatu daftar merupakan prosedur, perlakukan sebagai **bukan** prosedur.
 
-5.1.4. Untuk klausa independen (aturan 3.3), seluruh pengujian 5.2–5.5 diterapkan langsung terhadap klausa tersebut sebagai satu unit tunggal. Hasil klasifikasinya tidak memicu proses gabung/pisah, karena klausa independen sudah berdiri sendiri per definisi 3.3 — kecuali rangkaian Definisi Umum sesuai aturan 6.5.
+5.1.2. Apabila aturan 5.2 tidak berlaku secara jelas, uji 5.3–5.5 **WAJIB** diterapkan terhadap **setiap** klausa anak, menghasilkan (1) atau (2) per klausa anak. Hasilnya menentukan pembagian menurut bagian 6: seluruhnya sejenis (aturan 6.1 atau 6.2) atau campuran (aturan 6.3).
 
-5.1.5. Ketika pengujian 5.2–5.5 diterapkan terhadap suatu klausa anak, klausa anak tersebut **WAJIB dibaca bersama konten klausa induknya** sebagai satu kesatuan kalimat, **BUKAN** dibaca sendirian. Klausa induk umumnya memuat subjek dan penanda modalitas (misalnya `berhak`, `wajib`, `dapat`, `menyetujui bahwa`), sedangkan klausa anak hanya memuat pelengkap predikatnya. Karena sifat hak atau kewajiban ditentukan oleh subjek dan modalitas tersebut, membaca klausa anak sendirian akan menyembunyikan hak atau kewajiban yang sebenarnya ada.
+5.1.4. Klausa independen (aturan 3.3) diuji sebagai satu unit; hasilnya tidak memicu gabung/pisah, kecuali rangkaian Definisi Umum (aturan 6.5).
 
-- 5.1.5.1. Gabungkan konten klausa induk dengan klausa anak menjadi satu kalimat utuh, lalu ajukan pertanyaan aturan 5.3 terhadap kalimat gabungan tersebut: apakah kalimat itu memberikan hak atau membebankan kewajiban kepada suatu pihak?
-- 5.1.5.2. Contoh: klausa induk `Bank berhak untuk:` dengan klausa anak `Melakukan perawatan secara teratur…` dibaca sebagai `Bank berhak untuk melakukan perawatan secara teratur…`. Dibaca sendirian, klausa anak tersebut tampak hanya informatif; dibaca bersama induknya, klausa tersebut jelas merupakan **hak** Bank sehingga masuk kategori aturan 4.2 dan menghasilkan **(2) HARUS-DIPISAH** pada aturan 5.3.
-- 5.1.5.3. Unit yang diuji harus sama dengan unit yang disimpan. Karena konten klausa induk memang diwariskan ke dalam `clause_text` setiap klausa anak (aturan 7.1), pengujian pun harus dilakukan terhadap gabungan induk dan anak.
-- 5.1.5.4. Konten klausa induk berlaku sama bagi **seluruh** klausa anak, sehingga tidak dapat dipakai untuk membedakan satu klausa anak dari klausa anak lainnya. Perbandingan antar-klausa anak untuk menentukan pengelompokan (aturan 6.3) tetap dilakukan berdasarkan perbedaan isi masing-masing klausa anak.
+5.1.5. **Klausa anak WAJIB dibaca bersama kalimat induknya**, bukan sendirian. Hak atau kewajiban ditentukan oleh subjek dan modalitas di kalimat induk (`berhak`, `wajib`, `dapat`, `menyetujui bahwa`), sedangkan klausa anak umumnya hanya memuat pelengkapnya. Contoh: `Bank berhak untuk:` + `Melakukan perawatan secara teratur…` dibaca `Bank berhak untuk melakukan perawatan secara teratur…` → **hak** Bank → **(2) HARUS-DIPISAH** pada aturan 5.3. Karena kalimat induk sama bagi seluruh klausa anak, pengelompokan campuran (aturan 6.3) tetap ditentukan oleh perbedaan isi masing-masing klausa anak.
 
 5.1.6. **Struktur bertingkat.** Apabila klausa anak sendiri menjadi klausa induk bagi daftar di bawahnya (misalnya `b. Inisiatif Bank terkait adanya:` → `1)` → `2)`, atau `ii. Risiko …, termasuk namun tidak terbatas kepada:` → `a.` … `j.`), pengujian 5.1–5.5 dan bagian 6 diterapkan **ulang di setiap tingkat**, dari tingkat teratas ke tingkat terdalam.
 
@@ -290,7 +261,7 @@ Apakah klausa secara keseluruhan merupakan **prosedur** sesuai aturan 5.2.2, **A
 Struktur induk-anak merupakan daftar unsur wajib apabila **SELURUH** syarat berikut terpenuhi:
 
 - 5.2.1.1 Klausa induk membebankan **satu** kewajiban atau penyampaian tunggal — misalnya `Pemberitahuan ... harus dibuat`, `Permohonan wajib dilampiri`, `Konsumen berhak memperoleh`; **DAN**
-- 5.2.1.2. Pemenuhannya bersifat **kumulatif**: seluruh klausa anak berlaku bersama-sama, antara lain ditandai kata `semua`, `seluruh`, atau `setiap` yang merujuk pada keseluruhan daftar — **BUKAN** daftar alternatif yang ditandai `salah satu` atau `sekurang-kurangnya satu`; **DAN**
+- 5.2.1.2. Pemenuhannya bersifat **kumulatif**: seluruh klausa anak berlaku bersama-sama, antara lain ditandai kata `semua`, `seluruh`, atau `setiap` yang merujuk pada keseluruhan daftar — **BUKAN** daftar alternatif yang ditandai `salah satu`, `sekurang-kurangnya satu`, `atau`, maupun `dan/atau` (aturan 6.6); **DAN**
 - 5.2.1.3. Tidak ada satu pun klausa anak yang, apabila dibaca bersama klausa induknya (aturan 5.1.5), dapat dilaksanakan, dituntut, atau dilanggar secara terpisah dari kewajiban atau hak tunggal pada aturan 5.2.1.1.
 
 Apabila salah satu syarat tidak terpenuhi, aturan 5.2.1 tidak berlaku dan pengujian dilanjutkan ke aturan 5.3.
@@ -305,24 +276,31 @@ Apabila salah satu syarat tidak terpenuhi, aturan 5.2.1 tidak berlaku dan penguj
   - daftar **pernyataan atau persetujuan** — misalnya `Nasabah menyatakan bahwa:`, `Pengguna setuju bahwa:`, `Pemegang Kartu memahami bahwa:`;
   - daftar **alasan, akibat, atau pengecualian** dari suatu hak atau kewajiban;
   - daftar **sumber, penyebab, atau ruang lingkup** suatu hak, kewajiban, atau pengecualian tanggung jawab — kalimat induk diakhiri `yang timbul dari:`, `akibat:`, `disebabkan oleh:`, atau `termasuk namun tidak terbatas pada:`, misalnya `Anda setuju untuk membebaskan Kami dari setiap klaim … yang timbul dari:` atau `Bank tidak bertanggung jawab terhadap segala risiko …, termasuk namun tidak terbatas kepada:`;
-  - daftar **pernyataan mengenai status atau sifat hukum** suatu produk atau dana, misalnya `Saldo uang elektronik yang tersimpan dalam rekening:` diikuti `a. Bukan merupakan simpanan …`, `b. Tidak termasuk yang dijamin oleh Lembaga Penjamin Simpanan …`;
+  - daftar **pilihan** — tindakan, inisiatif, cara, atau **saluran** yang merupakan alternatif satu sama lain untuk melaksanakan suatu hak atau kewajiban yang disebut di kalimat induk (misalnya `dapat`, `berhak`, `wajib`, `silakan`), umumnya dihubungkan `atau` (misalnya `Penggantian PIN … dapat dilakukan atas:` → `a. Inisiatif Pengguna … setiap saat; atau` → `b. Perintah … otomatis … setiap 1 (satu) tahun sekali.`, atau `Pengguna dapat mengakhiri Kartu Debit dengan cara:` → `1. Melakukan pemblokiran Kartu Debit secara permanen …` → `2. Menyampaikan kepada Bank pemberitahuan tertulis …`). Setiap butir adalah opsi tersendiri, bukan langkah berurutan (aturan 5.2.2.4). Termasuk daftar **saluran** untuk melaksanakan hak atau kewajiban, walaupun dihubungkan `dan/atau`: `Penerimaan pengaduan Pengguna … dapat melalui:` → `1) Jaringan Kantor Bank; dan/atau` → `2) bjb Call 14049.`, `nasabah dapat melaporkan kepada:` → `1 Kantor Cabang Bank …` → `2 Layanan Call Center …`, dan `Pengguna dapat mengajukan keluhan … dengan cara: (i) mengakses menu …; (ii) menghubungi Customer Centre …` → **PISAH** per saluran. Pengecualian: saluran yang butirnya memuat **langkah-langkah** pelaksanaan (misalnya `melalui cara-cara sebagai berikut: a. Channel Bank …, dengan cara: 1. Transfer ke rekening … 2. …`) adalah prosedur (aturan 5.2.2) dan digabung;
   - daftar **tindakan untuk memenuhi suatu kewajiban**, misalnya `Nasabah wajib merahasiakan PIN dengan cara:` diikuti butir `tidak memberitahukan PIN kepada orang lain`, `mengganti PIN secara berkala`, dan seterusnya. Setiap butir merupakan kewajiban atau larangan tersendiri, bukan langkah yang harus dilakukan berurutan.
 - 5.2.2.4. Kata `cara` atau `prosedur` pada kalimat induk tidak dengan sendirinya menjadikan suatu daftar sebagai prosedur. Yang menentukan adalah apakah klausa anak merupakan **langkah berurutan untuk menyelesaikan satu tindakan** (aturan 5.2.2.1).
 
 ### 5.2.3 Daftar informatif
 
-- 5.2.3.1. **Daftar informatif** adalah daftar yang hanya menyebutkan atau menjelaskan sesuatu tanpa membebankan kewajiban atau memberikan hak kepada suatu pihak, misalnya daftar **fitur, menu, atau layanan** yang dapat diakses, **sarana atau saluran** (kanal, media, kantor), **tips, kiat, atau saran** keamanan, **komponen** atau **jenis** produk.
+- 5.2.3.1. **Daftar informatif** adalah daftar yang hanya menyebutkan atau menjelaskan sesuatu tanpa membebankan kewajiban atau memberikan hak kepada suatu pihak, misalnya daftar **fitur, menu, atau layanan** yang dapat diakses, **sarana atau saluran** yang hanya disebutkan sebagai informasi, tanpa hak atau kewajiban suatu pihak di kalimat induk (misalnya `Layanan tersedia melalui:`, `Transaksi QRIS digunakan pada saat Pengguna … melakukan transaksi …, dengan cara: a. Scan QR melalui kamera; atau b. Ambil QR melalui galeri.`) — saluran untuk melaksanakan hak atau kewajiban adalah daftar pilihan (aturan 5.2.2.3), **tips, kiat, atau saran** keamanan, **komponen** atau **jenis** produk.
 - 5.2.3.2. Ciri umumnya: kalimat induk berbunyi `… dapat mengakses:`, `… terdiri dari:`, `… meliputi:`, `… antara lain:`, `… disarankan untuk:`, `Tips …:`, `Fitur …:`.
 - 5.2.3.3. Daftar informatif **selalu digabung** menjadi satu klausa (aturan 6.1.1).
 - 5.2.3.4. Daftar **definisi** (`"X" adalah …`, `X berarti …`) **bukan** daftar informatif. Daftar definisi diatur aturan 4.3, 6.3, dan 6.5: setiap Definisi Khusus menjadi klausa sendiri, dan hanya Definisi Umum yang bersebelahan yang digabung.
+- 5.2.3.5. Termasuk daftar informatif:
+  - 5.2.3.5.1. **Tata cara pengamanan atau tips** yang baik kalimat induk maupun butirnya tidak memuat penanda hak atau kewajiban (`wajib`, `harus`, `dilarang`, `berhak`, `bertanggung jawab`), walaupun butirnya berbentuk `Tidak memberitahukan …` atau `Tidak mencatatkan …`. Contoh: `Tata cara pengamanan User ID, Password Login dan PIN Transaksi:` → `1) Tidak memberitahukan … kepada orang lain.` → `2) Tidak mencatatkan … pada kertas …` → `3) Berhati-hati …` → **GABUNG**. Bandingkan dengan `Nasabah wajib merahasiakan PIN dengan cara:` → **PISAH** (aturan 5.2.2.3).
+  - 5.2.3.5.2. **Pernyataan status atau sifat hukum** suatu produk atau dana yang hanya menjelaskan produk tersebut. Contoh: `Saldo uang elektronik yang tersimpan dalam rekening Simas E-Money:` → `a. Bukan merupakan simpanan …` → `b. Tidak termasuk yang dijamin oleh Lembaga Penjamin Simpanan …` → `c. Tidak mendapatkan bunga …` → **GABUNG**.
+  - 5.2.3.5.3. **Ketentuan suatu fitur atau layanan** yang diantar `… dengan tunduk pada ketentuan-ketentuan berikut:` atau `… dengan ketentuan sebagai berikut:`, apabila butir-butirnya secara keseluruhan menjelaskan fitur atau layanan tersebut. Frasa `tunduk pada ketentuan berikut` tidak dengan sendirinya membebankan hak atau kewajiban. Contoh: `Nasabah dapat melakukan Transfer Terjadwal dengan tunduk pada ketentuan-ketentuan berikut:` → `a. Transfer Terjadwal adalah fitur …` → `b. Transfer Terjadwal dapat dilakukan untuk keperluan: …` → `c. …` → … → `g. …` → **GABUNG** seluruhnya menjadi **satu** klausa, termasuk butir yang memuat kewajiban atau pengecualian tanggung jawab (misalnya `e. Nasabah harus memastikan bahwa saldo …`, `g. … Bank tidak bertanggung jawab atas kerugian …`). Struktur ini **tidak** diuji per butir dan aturan 6.3 tidak diterapkan. Penilaian ini berlaku per struktur: struktur lain dengan kalimat induk serupa yang butirnya merupakan opsi hak/kewajiban tetap diuji per butir (aturan 5.1.0).
 
 ### 5.2.4 Struktur bertujuan tunggal
 
-Dua bentuk berikut digabung menjadi satu klausa walaupun kalimat induknya memuat `wajib` atau berupa kondisi, karena butir-butirnya tidak dapat dibaca sebagai hak atau kewajiban tersendiri:
+Bentuk-bentuk berikut digabung menjadi satu klausa walaupun kalimat induknya memuat `wajib` atau berupa kondisi, karena butir-butirnya tidak dapat dibaca sebagai hak atau kewajiban tersendiri:
 
 - 5.2.4.1. **Ciri satu objek.** Kalimat induk diakhiri `yang:` dan setiap butir menyebut **ciri, sifat, atau syarat dari satu objek yang sama** yang disebut di kalimat induk. Contoh: `Nasabah wajib untuk memilih ID pengguna dan kode sandi yang:` → `1. Merupakan 6-20 digit kode alpha-numeric …;` → `2. Tidak memiliki hubungan yang jelas dengan nama …;` → `3. Bukan merupakan urutan huruf-huruf atau angka-angka …` → **satu klausa**. Bandingkan dengan `Nasabah wajib:` yang setiap butirnya berupa tindakan tersendiri → tetap **PISAH** (aturan 5.2.2.3).
 - 5.2.4.2. **Kondisi dengan akibat di akhir.** Kalimat induk hanya menyebut kondisi (misalnya `Dalam hal Nasabah:`, `Apabila terdapat kondisi:`) dan **tidak** memuat hak, kewajiban, atau akibat apa pun; akibatnya baru dinyatakan pada teks setelah butir terakhir (misalnya `maka Akun akan ditutup …`). Seluruh struktur — kalimat induk, semua butir kondisi, dan teks akibat — adalah **satu klausa**. Apabila akibat sudah disebut di kalimat induk (misalnya `PIN akan diblokir jika:`, `Bank berhak menolak Instruksi Transfer Dana jika:`), aturan ini **tidak** berlaku: daftar tersebut adalah kondisi alternatif dan diuji per klausa anak (aturan 5.2.2.3). Aturan ini juga **tidak** berlaku apabila kalimat induk diakhiri `maka:` dan butir-butirnya adalah akibat (misalnya `Dalam hal Rekening digibank milik Pengguna ditutup, maka:` → `1. Pengguna menyetujui …` → `2. …`): butir-butir tersebut diuji per klausa anak dan umumnya **PISAH**.
-- 5.2.4.3. Aturan 5.2.4 hanya berlaku apabila bentuknya terpenuhi secara jelas. Jika ragu, perlakukan daftar menurut aturan 5.2.2.3.
+- 5.2.4.3. **Daftar sarana atau data yang wajib dipakai atau didaftarkan.** Kalimat induk mewajibkan pemakaian atau pendaftaran sejumlah benda, perangkat, atau data (bukan tindakan), dan seluruhnya diperlukan bersama untuk satu keperluan. Contoh: `Dalam penggunaan aplikasi Livin', Anda wajib menggunakan atau mendaftarkan:` → `a. Smartphone sesuai dengan Operating System (OS) …` → `b. Nomor ponsel Indonesia …` → `c. Alamat email aktif …` → **satu klausa**, walaupun kalimat induk memuat `wajib`.
+  Bentuk yang sama: daftar **informasi atau data** yang menjadi sasaran **satu** kewajiban atau tanggung jawab, misalnya `Anda bertanggung jawab sepenuhnya atas penggunaan dan perlindungan atas informasi terkait dengan:` → `a. Nomor rekening;` → `b. Saldo rekening SeaBank;` → … → `termasuk dalam hal terjadi penyalahgunaan informasi dimaksud, …` → **satu klausa**, termasuk teks penutupnya.
+- 5.2.4.4. **Kesatuan syarat.** Kalimat induk yang diakhiri titik atau `:` dan mengantar butir-butir yang **semuanya** harus dipenuhi sebagai satu kesatuan syarat, bukan opsi. Contoh: `Untuk gambar yang ditampilkan berdasarkan permintaan dari Penabung, termasuk foto, berlaku ketentuan berikut ini.` → `a) Tidak boleh mengandung unsur pornografi.` → `b) Tidak melanggar tata susila …` → `c) …` → **satu klausa**.
+- 5.2.4.5. Aturan 5.2.4 hanya berlaku apabila bentuknya terpenuhi secara jelas. Jika ragu, perlakukan daftar menurut aturan 5.2.2.3.
 
 ## 5.3. Uji kedua — kewajiban atau hak
 
@@ -354,70 +332,32 @@ Apakah klausa merupakan Definisi Umum sesuai aturan 4.3.1, atau bersifat informa
 
 ## 6.1. Kondisi untuk MENGGABUNGKAN klausa-klausa anak menjadi satu klausa
 
-6.1.1. Jika **SELURUH** klausa anak merupakan Definisi Umum sesuai aturan 4.3.1, **ATAU** struktur tersebut merupakan daftar informatif sesuai aturan 5.2.3 (fitur, menu, layanan, sarana, saluran, tips, saran, komponen, jenis) yang tidak membebankan kewajiban atau memberikan hak bagi PJP atau konsumen. Daftar informatif **selalu** digabung.
+6.1.1. Seluruh klausa anak merupakan Definisi Umum (aturan 4.3.1), **ATAU** struktur merupakan daftar informatif (aturan 5.2.3). Daftar informatif **selalu** digabung.
 
-6.1.2. Jika struktur merupakan prosedur sesuai aturan 5.2.2, **ATAU** merupakan daftar unsur wajib dari satu kewajiban atau hak tunggal sesuai aturan 5.2.1, **ATAU** merupakan struktur bertujuan tunggal sesuai aturan 5.2.4 — **MESKIPUN** pada salah satu atau lebih langkahnya membebankan kewajiban atau memberikan hak bagi PJP dan/atau konsumen, atau Definisi Khusus sesuai aturan 4.3.2 atau 4.3.3. Prosedur **selalu** digabung.
+6.1.2. Struktur merupakan prosedur (aturan 5.2.2), daftar unsur wajib (aturan 5.2.1), atau struktur bertujuan tunggal (aturan 5.2.4) — **MESKIPUN** ada butir yang membebankan kewajiban, memberikan hak, atau berupa Definisi Khusus. Prosedur **selalu** digabung.
 
 ## 6.2. Kondisi untuk MEMISAHKAN klausa-klausa anak menjadi n klausa terpisah
 
-(di mana *n* adalah jumlah klausa anak dari suatu klausa induk-anak)
+6.2.1. Seluruh klausa anak membebankan kewajiban atau memberikan hak (bukan langkah suatu prosedur), **ATAU** seluruh klausa anak merupakan Definisi Khusus (aturan 4.3.2 atau 4.3.3). Setiap klausa anak menjadi satu klausa.
 
-6.2.1. Jika **SELURUH** klausa anak membebankan kewajiban atau memberikan hak bagi PJP dan/atau konsumen yang **bukan** menjelaskan suatu proses atau prosedur langkah demi langkah, **ATAU** **SELURUH** klausa anak merupakan Definisi Khusus (Identitas Para Pihak dan/atau Ruang Lingkup Produk/Layanan, sesuai aturan 4.3.2 atau 4.3.3).
+## 6.3. Klausa anak campuran
 
-## 6.3. Jika klausa-klausa anak mengandung KEDUA jenis
+Apabila klausa anak bercampur antara kelompok **(1) HARUS-DIGABUNG** (informatif, Definisi Umum) dan kelompok **(2) HARUS-DIPISAH** (kewajiban/hak, Definisi Khusus), telusuri klausa anak secara berurutan dari yang pertama hingga yang terakhir:
 
-Yaitu mengandung informasi umum atau prosedur (yang harus digabungkan) **DAN** Definisi Khusus sesuai aturan 4.3.2/4.3.3 atau kewajiban/hak bagi PJP atau konsumen (yang harus dipisahkan), maka terapkan langkah berikut secara berurutan:
-
-6.3.1. Secara berurutan dari anak ke-1 hingga ke-*n*, identifikasi untuk setiap klausa anak: termasuk kelompok mana klausa tersebut — (1) HARUS-DIGABUNG atau (2) HARUS-DIPISAH?
-
-- 6.3.1.1. Kelompok **(1) HARUS-DIGABUNG** mencakup klausa informatif/informasi umum dan Definisi Umum.
-- 6.3.1.2. Kelompok **(2) HARUS-DIPISAH** mencakup klausa kewajiban/hak dan Definisi Khusus.
-
-6.3.2. Jika klausa termasuk kelompok **(1) HARUS-DIGABUNG**, lanjutkan ke klausa berikutnya jika klausa saat ini bukan klausa anak terakhir. Hentikan proses jika sudah mencapai akhir daftar klausa anak.
-
-- 6.3.2.1. Jika klausa saat ini dan klausa berikutnya sama-sama termasuk kelompok (1) HARUS-DIGABUNG, gabungkan kedua klausa tersebut. Kemudian ulangi proses 6.3.2 dimulai dari klausa berikutnya setelah klausa yang baru saja digabung. Hentikan proses jika sudah mencapai akhir daftar klausa anak.
-- 6.3.2.2. Jika klausa berikutnya termasuk kelompok (2) HARUS-DIPISAH, maka kelompok (1) HARUS-DIGABUNG sebelumnya berakhir dan membentuk satu klausa tunggal sebagai anak dari klausa induk, sedangkan klausa (2) HARUS-DIPISAH berikutnya membentuk klausanya sendiri, terpisah dari kelompok (1) HARUS-DIGABUNG.
-
-6.3.3. Selain itu (klausa termasuk kelompok **(2) HARUS-DIPISAH**):
-
-- 6.3.3.1. Klausa tersebut membentuk klausa anak yang terpisah sendiri. Kemudian ulangi proses 6.3.2 dimulai dari klausa berikutnya setelah klausa saat ini. Hentikan proses jika sudah mencapai akhir daftar klausa anak.
-
-6.3.4. **Penentuan `pasal` untuk hasil pengelompokan aturan 6.3.** Setiap klausa hasil penggabungan dua atau lebih klausa anak yang bersebelahan diberi `pasal` yang menyebutkan **rentang penanda** klausa anak yang digabung, dipisahkan tanda hubung `-`. Klausa anak yang berdiri sendiri ditulis tanpa tanda hubung.
-
-- 6.3.4.1. Rentang ditulis dari penanda klausa anak pertama hingga penanda klausa anak terakhir dalam kelompok tersebut, mengikuti urutan penanda sebagaimana tertulis di dokumen.
-- 6.3.4.2. Contoh: klausa induk `3` memiliki lima klausa anak `a` sampai `e`, dengan hasil pengelompokan `a`–`b` digabung, `c` dipisah, dan `d`–`e` digabung. `pasal` yang dihasilkan adalah `3|a-b`, `3|c`, dan `3|d-e`.
-- 6.3.4.3. Tanda hubung pada aturan 6.3.4 **hanya** menyatakan rentang klausa anak yang digabung, dan tidak dipakai untuk keperluan lain pada field `pasal`.
+- 6.3.1. Setiap klausa anak kelompok **(2)** menjadi klausa sendiri.
+- 6.3.2. Klausa anak kelompok **(1)** yang **bersebelahan** digabung menjadi satu klausa; rangkaian tersebut berakhir begitu bertemu klausa anak kelompok (2).
+- 6.3.3. Kalimat induk diwariskan ke **setiap** klausa hasil (aturan 7).
+- 6.3.4. **`pasal`**: klausa hasil penggabungan diberi **rentang penanda** yang digabung, dipisahkan tanda hubung `-` sesuai urutan dokumen. Tanda hubung hanya dipakai untuk rentang ini. Contoh: klausa induk `3` dengan anak `a`–`e`, hasil `a`–`b` digabung, `c` dipisah, `d`–`e` digabung → `3|a-b`, `3|c`, `3|d-e`.
 
 ## 6.4. Contoh kombinasi
 
-Contoh berikut adalah penerapan langkah demi langkah dari aturan 6.3. Klausa induk memiliki delapan klausa anak yang bercampur antara kelompok (1) HARUS-DIGABUNG dan kelompok (2) HARUS-DIPISAH, sehingga aturan 6.3.1 sampai 6.3.3 dijalankan berurutan dari anak ke-1 hingga anak ke-8. Perhatikan bahwa setiap rangkaian klausa anak yang berdampingan dan sama-sama termasuk kelompok (1) digabung menjadi satu klausa (aturan 6.3.2.1), rangkaian tersebut berakhir begitu ditemukan klausa anak kelompok (2) (aturan 6.3.2.2), dan setiap klausa anak kelompok (2) membentuk klausanya sendiri (aturan 6.3.3.1). Konten klausa induk diwariskan ke seluruh klausa hasil sesuai aturan 7.
-
-Struktur asli:
-
-```
-<klausa induk>
-  <anak 1>  (1) HARUS-DIGABUNG
-  <anak 2>  (1) HARUS-DIGABUNG
-  <anak 3>  (1) HARUS-DIGABUNG
-  <anak 4>  (2) HARUS-DIPISAH
-  <anak 5>  (2) HARUS-DIPISAH
-  <anak 6>  (1) HARUS-DIGABUNG
-  <anak 7>  (1) HARUS-DIGABUNG
-  <anak 8>  (1) HARUS-DIGABUNG
-```
-
-Hasil — menjadi 4 klausa:
-
-```
-Klausa 1 = <klausa induk> + <anak 1> + <anak 2> + <anak 3>
-Klausa 2 = <klausa induk> + <anak 4>
-Klausa 3 = <klausa induk> + <anak 5>
-Klausa 4 = <klausa induk> + <anak 6> + <anak 7> + <anak 8>
-```
+Anak 1–3 kelompok (1), anak 4–5 kelompok (2), anak 6–8 kelompok (1) → **4 klausa**: `<klausa induk> + <anak 1> + <anak 2> + <anak 3>`, `<klausa induk> + <anak 4>`, `<klausa induk> + <anak 5>`, `<klausa induk> + <anak 6> + <anak 7> + <anak 8>`.
 
 ## 6.5. Definisi Umum di luar struktur induk-anak
 
 6.5.1. Daftar definisi kadang muncul sebagai rangkaian **klausa independen** (aturan 3.3), misalnya di bawah header `A. Definisi` tanpa kalimat pengantar. Klausa independen yang **seluruhnya Definisi Umum** (aturan 4.3.1), **bersebelahan**, dan berada dalam **satu cakupan header** (aturan 3.4) digabung menjadi satu klausa. Rangkaian berakhir begitu ditemukan klausa yang bukan Definisi Umum; klausa tersebut berdiri sendiri. Urutan dokumen dipertahankan.
+
+6.5.1.1. Aturan 6.5 **hanya** berlaku di bagian definisi, yaitu bagian berheader `Definisi`/`Istilah`/sejenisnya atau daftar yang diantar kalimat pengantar istilah (aturan 6.5.4). Butir bernomor berbentuk `X yaitu …`/`X adalah …` di bagian lain — misalnya penggolongan status di bawah `Pasal 11 Status Kolektibilitas Pembayaran` (`1. Kolektibilitas "Lancar" yaitu …`, `2. Kolektibilitas "Dalam Perhatian Khusus" yaitu …`) — adalah butir mandiri dan masing-masing menjadi klausa sendiri (aturan 3.3.3).
 
 6.5.2. Klausa independen jenis lain — informasi umum, prosedur, kewajiban/hak, Definisi Khusus — tidak pernah digabungkan (aturan 5.1.4).
 
@@ -433,29 +373,36 @@ Klausa 4 = <klausa induk> + <anak 6> + <anak 7> + <anak 8>
 
 ## 6.6. Panduan cepat berdasarkan kalimat induk
 
-Panduan ini merangkum aturan 5.2–6.3 untuk struktur kalimat induk yang diakhiri `:` diikuti daftar klausa anak yang **masing-masing mengawali baris baru**. Daftar sebaris di dalam satu kalimat atau paragraf selalu satu klausa (aturan 3.2.4) dan tidak diatur panduan ini. Panduan tidak menggantikan aturan 5.2–6.3, dan tetap berlaku di dalam satu cakupan header (aturan 3.4). Pada struktur bertingkat, panduan ini diterapkan di **setiap tingkat** (aturan 5.1.6).
+Panduan ini merangkum aturan 5.2–6.3 untuk struktur kalimat induk yang diikuti daftar klausa anak, baik yang setiap butirnya mengawali baris baru maupun daftar sebaris (aturan 3.2.4). Panduan tidak menggantikan aturan 5.2–6.3, dan tetap berlaku di dalam satu cakupan header (aturan 3.4). Pada struktur bertingkat, panduan ini diterapkan di **setiap tingkat** (aturan 5.1.6).
 
 | Kalimat induk | Contoh | Hasil |
 |---|---|---|
 | Prosedur (aturan 5.2.2) | `Cara melakukan aktivasi:`, `Tata cara pengajuan pengaduan:`, `Langkah-langkah registrasi:` | **GABUNG** menjadi satu klausa, meskipun ada langkah yang memuat hak atau kewajiban |
 | Daftar informatif (aturan 5.2.3) — **bukan** daftar definisi (aturan 5.2.3.4) | `Melalui Aplikasi, Nasabah dapat mengakses:`, `Pengamanan Mobile Banking terdiri dari:`, `Nasabah disarankan untuk:` | **GABUNG** menjadi satu klausa |
+| Tips atau tata cara pengamanan **tanpa** penanda hak/kewajiban (aturan 5.2.3.5.1) | `Tata cara pengamanan User ID, Password Login dan PIN Transaksi:` | **GABUNG** menjadi satu klausa |
+| Pernyataan status atau sifat hukum produk/dana (aturan 5.2.3.5.2) | `Saldo uang elektronik yang tersimpan dalam rekening:` → `a. Bukan merupakan simpanan …` | **GABUNG** menjadi satu klausa |
+| Ketentuan suatu fitur yang butirnya menjelaskan fitur tersebut (aturan 5.2.3.5.3) | `Nasabah dapat melakukan Transfer Terjadwal dengan tunduk pada ketentuan-ketentuan berikut:` | **GABUNG** menjadi satu klausa |
 | Syarat **kumulatif** (unsur wajib, aturan 5.2.1) — semua butir harus dipenuhi bersama untuk satu hak/kewajiban | `… harus memenuhi persyaratan berikut:`, `Untuk menggunakan Layanan Biometrik, Anda harus:`, `Dokumen yang wajib dibawa:`, `… hanya jika:` diikuti butir yang dihubungkan `dan` | **GABUNG** menjadi satu klausa |
 | Ciri satu objek (aturan 5.2.4.1) | `Nasabah wajib memilih ID pengguna dan kode sandi yang:` | **GABUNG** menjadi satu klausa |
+| Sarana atau data yang wajib dipakai/didaftarkan bersama (aturan 5.2.4.3) | `Anda wajib menggunakan atau mendaftarkan:` → `a. Smartphone …` → `b. Nomor ponsel …` → `c. Alamat email …` | **GABUNG** menjadi satu klausa |
+| Kesatuan syarat (aturan 5.2.4.4) | `… berlaku ketentuan berikut ini.` → `a) Tidak boleh mengandung unsur pornografi.` → `b) …` | **GABUNG** menjadi satu klausa |
 | Kondisi yang akibatnya baru dinyatakan **setelah** butir terakhir (aturan 5.2.4.2) | `Dalam hal Nasabah:` … `maka Akun akan ditutup …` | **GABUNG** menjadi satu klausa, termasuk teks akibatnya |
-| Kondisi **alternatif** — akibatnya disebut di kalimat induk, dan setiap butir sendiri-sendiri sudah cukup memicu hak/kewajiban | `Bank berhak menolak Instruksi Transfer Dana jika:`, `Dalam hal terjadi salah satu kejadian di bawah ini:`, `PIN akan diblokir jika:` diikuti butir yang dihubungkan `atau` | Uji per klausa anak (aturan 5.1.2) → umumnya **PISAH** |
+| Kondisi **alternatif** — akibatnya disebut di kalimat induk, dan setiap butir sendiri-sendiri sudah cukup memicu hak/kewajiban | `Bank berhak menolak Instruksi Transfer Dana jika:`, `Dalam hal terjadi salah satu kejadian di bawah ini:`, `PIN akan diblokir jika:` diikuti butir yang dihubungkan `atau` atau `dan/atau` | Uji per klausa anak (aturan 5.1.2) → umumnya **PISAH** |
+| Pilihan tindakan, inisiatif, cara, atau saluran untuk melaksanakan hak/kewajiban (aturan 5.2.2.3) | `Penggantian PIN … dapat dilakukan atas:`, `Pengguna dapat mengakhiri Kartu Debit dengan cara:`, `Penerimaan pengaduan … dapat melalui:`, `nasabah dapat melaporkan kepada:` diikuti butir yang merupakan alternatif | Uji per klausa anak → **PISAH** |
+| Saluran yang hanya informasi, atau saluran yang butirnya berisi langkah (aturan 5.2.3.1, 5.2.2) | `Layanan tersedia melalui:`, `… melalui cara-cara sebagai berikut: a. Channel Bank …, dengan cara: 1. … 2. …` | **GABUNG** menjadi satu klausa |
+| Skenario berbeda, masing-masing dengan akibat atau langkahnya sendiri (aturan 5.2.4.2) | `Jika ada BRIZZI yang … masih terdapat sisa nominal saldo maka:` → `1. Jika nominal saldo tersisa di kartu …` → `2. Jika …`; `Sistem Bank melakukan verifikasi … apabila:` → `a. Telah memiliki Nomor Account … sebelumnya, maka: 1) … 2) …` → `b. Tidak memiliki Nomor Account … sebelumnya, maka: …` | Uji per klausa anak → **PISAH** per skenario; langkah di dalam satu skenario digabung |
 | Hak, kewajiban, larangan, atau pengecualian tanggung jawab yang masing-masing dapat dilaksanakan atau dilanggar sendiri | `Bank berhak:`, `Nasabah wajib:`, `Pengguna dilarang:`, `Bank tidak bertanggung jawab atas:` | Uji per klausa anak → **PISAH** |
-| Pernyataan atau jaminan, termasuk pernyataan status atau sifat hukum produk/dana | `Nasabah menyatakan dan menjamin bahwa:`, `Pengguna setuju bahwa:`, `Saldo uang elektronik yang tersimpan dalam rekening:` | Uji per klausa anak → **PISAH** |
+| Pernyataan atau jaminan | `Nasabah menyatakan dan menjamin bahwa:`, `Pengguna setuju bahwa:` | Uji per klausa anak → **PISAH** |
 | Sumber, penyebab, atau ruang lingkup suatu hak, kewajiban, atau pengecualian tanggung jawab | `… yang timbul dari:`, `… akibat:`, `Bank tidak bertanggung jawab atas segala risiko …, termasuk namun tidak terbatas kepada:` | Uji per klausa anak → **PISAH** |
-| Ketentuan yang masing-masing berlaku sendiri | `… dengan ketentuan sebagai berikut:`, `… tunduk pada ketentuan-ketentuan berikut:` | Uji per klausa anak → umumnya **PISAH** |
 
-Setiap klausa anak hasil **PISAH** mewarisi kalimat induknya (aturan 7). Bedakan syarat **kumulatif** (digabung) dari kondisi **alternatif** (dipisah) berdasarkan aturan 5.2.1.2: kata `semua`, `seluruh`, `dan`, atau `harus memenuhi` menandakan kumulatif; kata `salah satu`, `atau`, `sekurang-kurangnya satu` menandakan alternatif.
+Setiap klausa anak hasil **PISAH** mewarisi kalimat induknya (aturan 7). Bedakan syarat **kumulatif** (digabung) dari kondisi **alternatif** (dipisah) berdasarkan aturan 5.2.1.2: kata `semua`, `seluruh`, `dan`, atau `harus memenuhi` menandakan kumulatif; kata `salah satu`, `atau`, `dan/atau`, `sekurang-kurangnya satu` menandakan alternatif. Pada `dan/atau`, yang diutamakan adalah makna `atau`, sehingga daftar yang dihubungkan `dan/atau` — termasuk daftar kondisi, tindakan, dan saluran — adalah alternatif (contoh: `Bank dapat memperpanjang jangka waktu … apabila terdapat kondisi: 1) …; dan/atau 2) …` → **PISAH**).
 
 ## 6.7. Urutan prioritas aturan
 
 6.7.1. Aturan berikut adalah aturan utama dan **tidak pernah dikalahkan** oleh aturan lain:
 
 - 6.7.1.1. Setiap butir mandiri dan setiap paragraf mandiri yang tidak didahului klausa induk adalah klausa sendiri dan tidak digabung (aturan 3.3.3–3.3.5).
-- 6.7.1.2. Daftar hak, kewajiban, larangan, pernyataan, dan kondisi alternatif dipisah per butir dengan kalimat induk diwariskan (aturan 5.2.2.3 dan 6.6), **kecuali** daftar tersebut memenuhi aturan 5.2.1, 5.2.2, 5.2.3, atau 5.2.4 secara jelas.
+- 6.7.1.2. Daftar hak, kewajiban, larangan, pernyataan, pilihan, dan kondisi alternatif dipisah per butir dengan kalimat induk diwariskan (aturan 5.2.2.3 dan 6.6), **kecuali** daftar tersebut memenuhi aturan 5.2.1, 5.2.2, 5.2.3, atau 5.2.4 secara jelas.
 - 6.7.1.3. Penanda nomor atau huruf klausa independen dan penanda klausa induk tingkat teratas tidak ditulis di `clause_text` (aturan 7.4.3 dan 10.3).
 - 6.7.1.4. Pada struktur bertingkat, pengujian diterapkan ulang di setiap tingkat (aturan 5.1.6), dan butir setingkat selalu memulai klausa baru (aturan 3.3.7).
 
@@ -476,11 +423,15 @@ Setiap klausa anak hasil **PISAH** mewarisi kalimat induknya (aturan 7). Bedakan
 > - Benar: `Anda sebelumnya mengakui dan menyetujui bahwa:\n1. Layanan memiliki lisensi, tidak dijual kepada Anda, …`
 > - Salah: `Layanan memiliki lisensi, tidak dijual kepada Anda, …` ← kalimat induk dan penanda hilang
 
+- 7.1.2.1. **Kalimat induk tidak harus diakhiri `:`.** Paragraf pengantar yang memuat `… berikut ini.`, `… sebagai berikut`, `Berikut ini …`, atau `:` di tengah kalimat, lalu langsung diikuti butir berpenanda, tetap merupakan klausa induk (aturan 3.2.2) meskipun diakhiri titik. Struktur tersebut diuji gabung/pisah menurut bagian 5–6 seperti struktur lainnya; apabila dipisah, paragraf pengantar diwariskan ke setiap butir. Pengecualian: paragraf pembuka bercakupan seluruh dokumen (aturan 1.3.2).
+  - Contoh: `Berikut ini adalah proses pendaftaran Aplikasi digibank Mobile Banking …: Untuk dapat melakukan pendaftaran …, Nasabah harus …` diikuti langkah `1.`, `2.`, … adalah struktur induk-anak; karena berupa prosedur pendaftaran (aturan 5.2.2), seluruhnya **digabung** menjadi satu klausa — **seluruh** butir hingga header berikutnya, termasuk butir yang berupa pernyataan atau ketentuan (misalnya `Pengguna hanya dapat mendaftarkan 1 (satu) Rekening utama …`), bukan hanya langkah-langkah pertamanya. Struktur `Berikut ini adalah proses Pembukaan Rekening …` diperlakukan sama. `… berlaku ketentuan berikut ini.` → `a)` → `b)` → `c)` juga struktur induk-anak, dan digabung sebagai kesatuan syarat (aturan 5.2.4.4).
+
 7.1.3. **Judul butir di antara kalimat induk dan isinya.** Apabila butir di bawah kalimat induk berupa judul singkat (misalnya `1. PEMBAYARAN MELALUI VIRTUAL ACCOUNT` atau `1. Pengungkapan Informasi`) yang diikuti paragraf atau butir isinya sendiri, butir judul tersebut adalah tingkat induk berikutnya (aturan 7.1 dan 8.2):
 
 - 7.1.3.1. `clause_text` setiap klausa hasil = kalimat induk + judul butir beserta penandanya + isi, masing-masing pada baris baru.
 - 7.1.3.2. Setiap judul butir beserta isinya adalah sub-bagian tersendiri, **bukan** butir daftar informatif (aturan 5.2.3), sehingga tidak digabung dengan judul butir lain. Isi di bawah setiap judul butir diuji tersendiri menurut bagian 3–6.
 - 7.1.3.3. Contoh: `Dalam pelaksanaan Layanan, Kami menyediakan beberapa pilihan pembayaran sebagai berikut:` → `1. PEMBAYARAN MELALUI VIRTUAL ACCOUNT` → paragraf `Rekening Virtual Account adalah …` menghasilkan `Dalam pelaksanaan Layanan, Kami menyediakan beberapa pilihan pembayaran sebagai berikut:\n1. PEMBAYARAN MELALUI VIRTUAL ACCOUNT\nRekening Virtual Account adalah …`.
+- 7.1.3.5. **Bertingkat.** Apabila isi di bawah judul butir sendiri berupa kalimat induk dengan butir yang dipisah, setiap klausa hasil memuat **ketiga** tingkat: kalimat induk teratas + judul butir + kalimat induk di bawah judul + butirnya. Contoh: `Dalam pelaksanaan Layanan, Kami menyediakan beberapa pilihan pembayaran sebagai berikut:` → `4. PEMBAYARAN MELALUI PEMROSESAN KARTU` → `Dengan ini, Anda menerima dan menyetujui bahwa:` → `1. Kami tidak bertanggung jawab …` menghasilkan `Dalam pelaksanaan Layanan, Kami menyediakan beberapa pilihan pembayaran sebagai berikut:\n4. PEMBAYARAN MELALUI PEMROSESAN KARTU\nDengan ini, Anda menerima dan menyetujui bahwa:\n1. Kami tidak bertanggung jawab …`. **Salah:** `Dengan ini, Anda menerima dan menyetujui bahwa:\n1. Kami tidak bertanggung jawab …` ← kalimat induk teratas dan judul butir hilang.
 - 7.1.3.4. Header bagian yang **tidak** didahului kalimat induk tidak termasuk aturan ini dan tidak ditulis di `clause_text` (aturan 10.3).
 
 7.2. Pewarisan pada 7.1 **dibatasi oleh cakupan header** sebagaimana diatur pada aturan 3.4. Konten yang diwariskan hanya boleh berasal dari header atau klausa induk yang masih berada dalam cakupan yang sama atau levelnya lebih tinggi (belum ditutup oleh header pembatas lain sesuai aturan 3.4.1–3.4.2). Konten dari cakupan header yang sudah berakhir — termasuk cakupan header setara (*sibling*) yang mendahuluinya — **dilarang** ikut diwariskan, meskipun secara struktural berada dalam hierarki induk-anak yang sama.
@@ -495,7 +446,7 @@ Setiap klausa anak hasil **PISAH** mewarisi kalimat induknya (aturan 7). Bedakan
 > - Salah: `Teks induk yang diakhiri titik dua: teks klausa anak di sini` ← penanda `a.` hilang
 > - Salah: `teks klausa anak di sini` ← penanda `a.` dan teks induk hilang
 
-- 7.4.1. Apabila dua atau lebih klausa berpenanda digabung menjadi satu klausa (aturan 6.1, 6.3.2.1, atau 6.5), **seluruh** penanda yang tercakup **wajib** ditulis di dalam `clause_text`, masing-masing pada baris baru, sesuai urutan dan bentuk aslinya — bukan hanya penanda pertama, dan tidak dilebur menjadi satu paragraf. Teks induk yang diwariskan ditempatkan di awal; teks penutup (aturan 7.6) setelah penanda terakhir.
+- 7.4.1. Apabila dua atau lebih klausa berpenanda digabung menjadi satu klausa (aturan 6.1, 6.3.2, atau 6.5), **seluruh** penanda yang tercakup **wajib** ditulis di dalam `clause_text`, masing-masing pada baris baru, sesuai urutan dan bentuk aslinya — bukan hanya penanda pertama, dan tidak dilebur menjadi satu paragraf. Teks induk yang diwariskan ditempatkan di awal; teks penutup (aturan 7.6) setelah penanda terakhir.
 > Benar (`pasal` = `3|a-d`): `Teks induk:\na. …\nb. …\nc. …\nd. …`
 
 - 7.4.2. Aturan 7.4–7.4.1 berlaku bagi klausa berpenanda di dokumen; klausa tanpa penanda diatur pada aturan 7.5. Aturan 7.4 **tidak** berlaku bagi klausa independen: penanda klausa independen tidak ditulis di `clause_text` (aturan 10.3).
@@ -505,17 +456,10 @@ Setiap klausa anak hasil **PISAH** mewarisi kalimat induknya (aturan 7). Bedakan
 > - Salah: `5. Dalam hal Rekening digibank milik Pengguna ditutup, maka:\n1. Pengguna menyetujui bahwa …`
 > - Benar (bertingkat, `pasal` = `J. Pemblokiran …|1|b|2`): `Pemblokiran … dapat dilakukan atas:\nb. Inisiatif Bank terkait adanya:\n2) Terpenuhinya kriteria …` — penanda `1.` milik induk teratas tidak ditulis; `b.` dan `2)` ditulis.
 
-7.5. Apabila klausa anak **tidak** memiliki penanda daftar di dokumen dan hanya dibedakan oleh indentasi, baris baru, atau baris kosong (aturan 3.2.3.3–3.2.3.4), Anda **wajib** membuat penomoran `1.`, `2.`, `3.`, … sesuai aturan 8.1 **dan menuliskannya di dalam `clause_text`**, masing-masing pada baris baru. Kewajiban ini berlaku baik klausa anak tersebut **dipisah maupun digabung** menjadi satu klausa.
+7.5. Klausa anak yang **tidak** memiliki penanda di dokumen (hanya dibedakan indentasi, baris baru, atau baris kosong, aturan 3.2.3.3–3.2.3.4) **wajib** diberi penomoran `1.`, `2.`, `3.`, … **di dalam `clause_text`**, masing-masing pada baris baru — baik dipisah maupun digabung. Penomoran ini mengikuti cakupan header (aturan 3.4).
 
-Perlakuan terhadap field `pasal` bergantung pada hasil Aturan Pembagian Klausa Induk-Anak (aturan 6.2.1 dan 6.3):
-
-- 7.5.1. **Apabila klausa anak DIGABUNG** menjadi satu klausa: penomoran hasil generate **tidak** ditambahkan ke field `pasal`; `pasal` tetap merujuk klausa induknya.
-  - Benar: `Melalui m-BCA, Nasabah dapat mengakses:\n1. rekening yang terhubung…\n2. informasi rekening deposito…\n3. informasi Kartu Kredit BCA…` dengan `pasal` = `C. KETENTUAN PENGGUNAAN|2`
-  - Salah: seluruh klausa anak melebur menjadi satu paragraf tanpa penanda
-- 7.5.2. **Apabila klausa anak DIPISAH** menjadi *n* klausa: penomoran hasil generate **WAJIB** ditambahkan ke field `pasal` sebagai segmen jenjang baru setelah pemisah `|`, agar setiap klausa hasil pemisahan memiliki `pasal` yang berbeda. Tanpa segmen ini, seluruh klausa hasil pemisahan akan memiliki `pasal` yang identik dan tidak dapat dibedakan.
-  - Benar (apabila contoh m-BCA di atas termasuk HARUS-DIPISAH): `C. KETENTUAN PENGGUNAAN|2|1`, `C. KETENTUAN PENGGUNAAN|2|2`, dan `C. KETENTUAN PENGGUNAAN|2|3`
-  - Salah: ketiga klausa sama-sama memakai `C. KETENTUAN PENGGUNAAN|2`
-- 7.5.3. Pada kedua kasus, penomoran hasil generate tetap ditulis di dalam `clause_text` sebagaimana diwajibkan pada paragraf pertama aturan 7.5.
+- 7.5.1. **DIGABUNG:** penomoran **tidak** masuk `pasal`; `pasal` tetap merujuk klausa induk. Benar: `Melalui m-BCA, Nasabah dapat mengakses:\n1. rekening yang terhubung…\n2. informasi rekening deposito…\n3. informasi Kartu Kredit BCA…` dengan `pasal` = `C. KETENTUAN PENGGUNAAN|2`. Salah: klausa anak melebur menjadi satu paragraf tanpa penanda.
+- 7.5.2. **DIPISAH:** penomoran **WAJIB** ditambahkan sebagai segmen `pasal` baru agar setiap klausa hasil memiliki `pasal` berbeda. Benar: `C. KETENTUAN PENGGUNAAN|2|1`, `…|2|2`, `…|2|3`. Salah: ketiganya memakai `C. KETENTUAN PENGGUNAAN|2`.
 
 7.6. Apabila klausa induk memiliki teks penutup yang muncul **setelah** klausa anak terakhir, teks tersebut adalah bagian dari klausa induk dan **wajib diwariskan ke setiap** klausa anak hasil pemisahan, ditempatkan setelah teks anak. Contoh: pada struktur `Nasabah setuju bahwa:` → `a.` → `b.` → `antara lain untuk kenyamanan dan keamanan Nasabah…`, kalimat terakhir diwariskan ke klausa `a.` **dan** klausa `b.`.
 
@@ -525,9 +469,7 @@ Penentuan apakah suatu teks setelah klausa anak terakhir merupakan teks penutup 
 
 # 8. Aturan Sekunder
 
-8.1. Field `pasal` berisi nomor atau teks lengkap dari setiap header suatu bagian **DAN** penomoran klausa anak beserta deskripsinya (jika ada). Jika tidak ada penomoran untuk klausa anak, maka penomoran biasa `1`, `2`, `3`, …, `n` harus dibuat untuk setiap klausa anak. Penomoran otomatis ini mengikuti cakupan klausa sesuai aturan 3.4. Penomoran otomatis tersebut dimasukkan ke field `pasal` **hanya** apabila klausa anak DIPISAH menjadi klausa-klausa tersendiri (aturan 7.5.2). Apabila klausa anak DIGABUNG menjadi satu klausa, penomoran otomatis hanya ditulis di dalam `clause_text` dan `pasal` tetap merujuk klausa induknya (aturan 7.5.1).
-
-- 8.1.1. **Pengecualian:** untuk klausa ambigu yang diklasifikasikan menurut aturan 3.5, penomoran otomatisnya **tidak** memakai urutan generik `1`, `2`, `3`, … sebagaimana dimaksud pada aturan 8.1, melainkan melanjutkan skema penomoran yang sudah dipakai dokumen pada level yang bersangkutan, atau memakai bentuk tiruan induk-anak (misalnya `2.9|1`) apabila nomor lanjutan alami sudah terpakai — sesuai aturan 3.5.6.
+8.1. Field `pasal` berisi nomor atau teks lengkap setiap header bagian **DAN** penomoran klausa anak beserta deskripsinya (aturan 10.1). Penomoran buatan untuk klausa anak tanpa penanda mengikuti aturan 7.5; untuk klausa ambigu mengikuti aturan 3.5.6 (melanjutkan skema dokumen, atau bentuk `2.9|1` bila nomor lanjutan sudah terpakai).
 
 8.2. Jika deskripsi dari suatu header/judul atau nomor klausanya merupakan bagian dari klausa induk-anak, maka deskripsi tersebut juga harus disertakan di dalam `clause_text`. Namun perlu dicatat bahwa deskripsi header/judul atau nomor klausa yang diwariskan **terbatas pada cakupan** klausa tersebut sesuai aturan 3.4.2 dan 7.2.
 
@@ -546,7 +488,7 @@ Penentuan apakah suatu teks setelah klausa anak terakhir merupakan teks penutup 
 
 9.1. Apabila suatu klausa, definisi, atau paragraf menyajikan konten yang sama dalam Bahasa Indonesia dan Bahasa Inggris — baik sebagai kolom sejajar, pasangan "Indonesia / English", judul yang dipisahkan garis miring (misalnya `Saldo Baru/ New Outstanding`), maupun paragraf Bahasa Inggris yang langsung mengikuti paragraf Bahasa Indonesia tanpa header di antaranya — **ekstraksi hanya bagian Bahasa Indonesia saja**.
 
-9.2. **DILARANG** menyertakan kalimat, frasa, atau terjemahan Bahasa Inggris di mana pun pada field `topic` maupun `clause_text`, termasuk sebagai lanjutan di akhir paragraf yang sama (pengecualian: aturan 9.5).
+9.2. **DILARANG** menyertakan kalimat, frasa, atau terjemahan Bahasa Inggris di mana pun pada field `topic` maupun `clause_text`, termasuk sebagai lanjutan di akhir paragraf yang sama (pengecualian: aturan 9.5 dan 9.6).
 
 9.3. **Daftar bernomor yang diulang:** aturan ini tetap berlaku ketika terjemahan Bahasa Inggris bukan lanjutan sebaris, melainkan berupa **daftar kedua yang mengulang nomor atau huruf yang sama** dengan daftar Bahasa Indonesia di atasnya (misalnya item Bahasa Indonesia `1.` dan `2.` diikuti pengulangan Bahasa Inggris yang juga bernomor `1.` dan `2.`). Nomor `1.` yang dimulai ulang dalam Bahasa Inggris **BUKAN** klausa baru dan **BUKAN** bagian baru — itu adalah terjemahan dari nomor `1.` Bahasa Indonesia tepat di atasnya. Cocokkan setiap item Bahasa Inggris dengan item Bahasa Indonesia yang bernomor dan berposisi sama, ekstraksi hanya versi Bahasa Indonesia, dan buang seluruh daftar Bahasa Inggris.
 
@@ -556,6 +498,8 @@ Penentuan apakah suatu teks setelah klausa anak terakhir merupakan teks penutup 
 - Salah: `1. Nama Anda/ Your Name|1`
 
 9.5 **Klausa berbahasa Inggris tanpa pasangan.** Klausa yang seluruhnya Bahasa Inggris dan tidak memiliki versi Bahasa Indonesia di mana pun (periksa aturan 9.1 dan 9.3 terlebih dahulu) **WAJIB diekstraksi**, tidak dilewatkan: `clause_text` disalin verbatim dalam Bahasa Inggris (aturan 9.2 tidak berlaku; dilarang menerjemahkan), sedangkan `topic` tetap Bahasa Indonesia. Apabila pasangan Indonesianya ada, bagian Inggrisnya tetap dibuang.
+
+9.6. **Istilah Inggris di dalam kalimat Bahasa Indonesia.** Aturan 9.1–9.3 hanya berlaku bagi konten yang **disajikan dua kali** sebagai terjemahan (dokumen atau bagian dwibahasa). Kata atau istilah Bahasa Inggris yang menjadi bagian dari kalimat Bahasa Indonesia — termasuk istilah tanpa padanan (misalnya `Telegraphic Transfer (TT)`) dan nama tombol atau menu yang ditulis berpasangan (misalnya `pilih 'Kirim' atau 'Submit'`) — **disalin apa adanya** dan tidak dibuang, karena membuangnya dapat mengubah makna klausa.
 
 ---
 
@@ -583,12 +527,18 @@ Contoh:
 | `Pasal 3\|3.2\|a` | header bagian + nomor klausa + sub-item berpenanda `a.` |
 | `BAB II\|5` | header bagian + klausa tanpa induk |
 
-Gunakan nomor klausa yang benar-benar tertulis di dokumen (misalnya `1.1`, `2.2`, `a`, `i`). Hanya buat penomoran urut `1`, `2`, `3`, … apabila klausa tersebut memang tidak memiliki nomor di dokumen (sesuai aturan 8.1). Penomoran urut tersebut dimasukkan ke `pasal` hanya apabila klausa anak DIPISAH (aturan 7.5.2); apabila DIGABUNG, `pasal` tetap merujuk klausa induknya (aturan 7.5.1). Pengecualian: klausa ambigu yang diklasifikasikan menurut aturan 3.5 memakai penomoran lanjutan sesuai aturan 3.5.6, bukan urutan `1`, `2`, `3`, …. Segmen tambahan setelah pemisah `|` yang dibuat menurut aturan 3.5.6.3.2 merupakan pengecualian yang diizinkan terhadap larangan mengarang tingkat penomoran.
+Gunakan nomor klausa yang benar-benar tertulis di dokumen (misalnya `1.1`, `2.2`, `a`, `i`). Penomoran buatan hanya untuk klausa anak tanpa penanda (aturan 7.5) dan klausa ambigu (aturan 3.5.6); segmen buatan menurut aturan 3.5.6.1 adalah pengecualian yang diizinkan terhadap larangan mengarang tingkat penomoran.
 
 **Sub-section bernama.** Apabila judul sub-section mengandung nomor **dan** judul (misalnya `2.2.1 Penambahan Dana`), gunakan **teks judul lengkapnya** sebagai satu segmen `pasal` (jangan memisahkan nomor dari judulnya), lalu tambahkan nomor atau huruf item di dalam sub-section tersebut.
 
 - Benar: `2. Layanan|2.2|2.2.1 Penambahan Dana|1`
 - Salah: `2. Layanan|2.2|1`
+
+**Judul butir tanpa kalimat induk.** Butir bernomor yang hanya berupa judul singkat **tanpa** `:` di akhirnya (misalnya `1. Penggunaan Informasi.` atau `5. Fitur Reward Kartu Kredit`), tidak didahului kalimat induk, dan langsung diikuti sub-butir `a.`, `b.`, … adalah **header** (bagian 2), bukan klausa induk. Nomor beserta judulnya ditulis sebagai satu segmen `pasal`, dan setiap sub-butir adalah klausa independen: `clause_text`-nya ditulis apa adanya **tanpa** judul dan **tanpa** penanda `a.`/`b.` (aturan 10.3). Judul butir yang berada **di bawah** kalimat induk diatur aturan 7.1.3. Butir pengantar yang diakhiri `:` (misalnya `1. Hak Pemegang Kartu :`) adalah klausa induk dan diatur aturan 7.4.3.
+
+- Benar: `pasal` = `Pasal 13 Hak dan Kewajiban Bank|1. Penggunaan Informasi.|a`, `clause_text` = `Bank berhak untuk meminta, memverifikasi, …`
+- Benar: `pasal` = `D. Lain-Lain|5. Fitur Reward Kartu Kredit|a`, `clause_text` = `Bank berhak untuk menolak penukaran point reward …`
+- Salah: `pasal` = `Pasal 13 Hak dan Kewajiban Bank|1|a`, `clause_text` = `Penggunaan Informasi.\nBank berhak untuk meminta, …`
 
 **Sub-item berpenanda langsung.** Apabila sub-item ditandai huruf (`a`, `b`, `c`), angka romawi (`i`, `ii`, `iii`), atau angka biasa (`1`, `2`, `3`) **tanpa** klausa bernomor eksplisit di antara header bagian dan penanda-penanda tersebut, letakkan penanda itu langsung sebagai anak dari header bagian atau klausa bernomor terakhir. **Jangan mengarang tingkat penomoran yang tidak ada di dokumen.**
 
@@ -596,14 +546,10 @@ Gunakan nomor klausa yang benar-benar tertulis di dokumen (misalnya `1.1`, `2.2`
 - Salah: `7. Penangguhan|1|a`
 - Namun `11. Perbuatan|11.1|1|a` **benar** apabila klausa `11.1` di dokumen memang memuat item bernomor `1.` yang anak-anaknya adalah huruf `a`, `b`, `c`.
 
-**Klausa tunggal tanpa nomor.** Apabila suatu bagian hanya memuat **satu** klausa, klausa itu tidak bernomor, **dan** tidak ada item daftar apa pun di dalam bagian tersebut (tidak ada `a.`, `b.`, `c.`, tidak ada sub-item bernomor), gunakan header bagian saja sebagai `pasal` — jangan menambahkan `|1`.
+**Klausa tunggal tanpa nomor.** Apabila suatu bagian hanya memuat **satu** klausa tanpa nomor dan tanpa item daftar apa pun (tidak ada `a.`, `b.`, atau sub-item bernomor), `pasal` = header bagian saja, **tanpa** `|1`, untuk segala bentuk header (`F.`, `18.`, `BAB`/`PASAL`).
 
-- Benar: `18. Keterpisahan`, `F. FORCE MAJEURE`, `J. BAHASA`
-- Salah: `18. Keterpisahan|1`, `F. FORCE MAJEURE|1`, `J. BAHASA|1`
-- **Pengecualian:** apabila paragraf bagian tersebut diikuti sub-item berhuruf atau bernomor, sub-item itu adalah klausa anak — jangan diciutkan menjadi satu klausa.
-- **Batasan:** larangan menambahkan `|1` ini **hanya** berlaku untuk bagian yang benar-benar memuat satu klausa tunggal. Aturan ini **tidak** membatalkan segmen `|1`, `|2`, `|3`, … yang wajib dibuat ketika klausa anak tanpa penanda DIPISAH menjadi beberapa klausa (aturan 7.5.2).
-
-Aturan ini berlaku untuk **segala bentuk** header bagian — berhuruf (`F.`, `J.`), berangka (`18.`), maupun `BAB`/`PASAL`.
+- Benar: `18. Keterpisahan`, `F. FORCE MAJEURE`, `J. BAHASA`. Salah: `18. Keterpisahan|1`, `F. FORCE MAJEURE|1`.
+- Apabila paragraf bagian tersebut diikuti sub-item, sub-item itu adalah klausa anak — jangan diciutkan menjadi satu klausa. Larangan `|1` juga tidak membatalkan segmen `|1`, `|2`, … untuk klausa anak tanpa penanda yang dipisah (aturan 7.5.2).
 
 ## 10.2. Field `topic`
 
@@ -660,18 +606,11 @@ Ekstraksi **SELURUH** klausa yang dapat diidentifikasi. Jangan melewatkan satu p
 
 Sebelum mengembalikan JSON, periksa:
 
-1. Setiap klausa induk-anak yang **seluruh** anaknya berisi kewajiban/hak sudah **dipisah** (aturan 6.2.1) — jangan pernah mengembalikan satu klausa yang memuat `a.` dan `b.` sekaligus apabila keduanya merupakan kewajiban/hak. **Pengecualian:** apabila aturan 5.2 sudah menghasilkan **(1) HARUS-DIGABUNG** — termasuk daftar unsur wajib menurut aturan 5.2.1 — struktur tersebut memang menjadi satu klausa dan tidak boleh dipisah. Pemeriksaan ini berlaku di **setiap tingkat** struktur bertingkat (aturan 5.1.6).
-2. Bagian yang hanya memuat satu klausa tanpa nomor **tidak** memakai akhiran `|1` (aturan 10.1).
-3. Paragraf pembuka dan penutup dokumen sudah diekstraksi (aturan 1.3).
-4. Klausa anak tanpa penanda sudah diberi penomoran di dalam `clause_text` (aturan 7.5), dan — apabila klausa anak tersebut DIPISAH — penomoran itu juga sudah ditambahkan sebagai segmen baru pada `pasal` sehingga setiap klausa hasil pemisahan memiliki `pasal` yang berbeda (aturan 7.5.2).
-5. Klausa gabungan memuat seluruh penanda anak yang digabung di dalam `clause_text` (aturan 7.4.1) — misalnya `pasal` `3|a-d` memuat `a.` sampai `d.`.
-6. Tidak ada catatan kaki, catatan akhir, atau catatan bertanda bintang yang menjadi klausa sendiri; setiap catatan sudah ditempatkan di akhir `clause_text` yang memuat penandanya (aturan 8.6).
-7. Prosedur (aturan 5.2.2), daftar informatif (aturan 5.2.3), daftar syarat kumulatif (aturan 5.2.1), dan struktur bertujuan tunggal (aturan 5.2.4) sudah **digabung** menjadi satu klausa; bagian definisi tidak ditulis sebagai satu klausa, melainkan dipisah per Definisi Khusus dan per rangkaian Definisi Umum yang bersebelahan (aturan 6.5); daftar kondisi alternatif, daftar hak/kewajiban/larangan, dan daftar pernyataan sudah **dipisah** per butir dengan kalimat induk diwariskan (aturan 6.6) — kecuali butir sebaris di dalam satu kalimat atau paragraf, yang tetap satu klausa (aturan 3.2.4).
-8. Tidak ada satu bagian atau pasal yang seluruh isinya ditulis sebagai satu klausa: setiap butir mandiri dan setiap paragraf mandiri merupakan klausa sendiri (aturan 3.3.3–3.3.5); butir setingkat tidak ditempelkan ke butir sebelumnya (aturan 3.3.7); paragraf ketentuan baru setelah butir mandiri menjadi klausa sendiri (aturan 3.3.8).
-9. Tidak ada klausa independen yang `clause_text`-nya diawali nomor atau huruf butir (aturan 10.3), dan tidak ada klausa anak yang `clause_text`-nya diawali penanda milik klausa induk tingkat teratas (aturan 7.4.3).
-10. Tidak ada paragraf yang dipecah karena memuat butir sebaris seperti `(i)`, `(ii)` di dalam kalimatnya (aturan 3.2.4), dan tidak ada paragraf yang dipecah di batas kalimat (aturan 3.3.6).
-11. Setiap klausa anak yang dipisah diawali kalimat induknya — termasuk butir berupa kalimat lengkap di bawah kalimat yang diakhiri `:` (aturan 7.1.2), dan judul butir yang berada di antara kalimat induk dan isinya (aturan 7.1.3).
-12. Struktur ciri satu objek (`… yang:`) dan struktur kondisi yang akibatnya baru dinyatakan setelah butir terakhir sudah digabung menjadi satu klausa (aturan 5.2.4).
-13. Hanya para pihak, kategori produk, nama produk bermerek, Layanan Transfer Dana, dan Layanan Pembayaran yang menjadi Definisi Khusus; istilah komponen produk (rekening, kartu utama/tambahan, PIN, password, token, kode QR, limit, saldo, biaya, dan sejenisnya) adalah Definisi Umum dan digabung dengan Definisi Umum yang bersebelahan (aturan 4.3.4). Definisi badan usaha bernama (`"X" adalah PT …`) berdiri sendiri (aturan 4.3.2.3).
-14. Tidak ada klausa independen yang `clause_text`-nya diawali judul bagian (aturan 10.3).
-15. Apabila dua aturan tampak bertentangan, urutan prioritas aturan 6.7 sudah diikuti.
+1. **Gabung/pisah** sesuai bagian 5–6 dan tabel 6.6, di **setiap tingkat** (aturan 5.1.6). Daftar hak/kewajiban/larangan, kondisi alternatif, pilihan, pernyataan, dan skenario **dipisah** per butir — termasuk daftar sebaris `(i)`, `(ii)` (aturan 3.2.4). Prosedur, daftar informatif, syarat kumulatif, struktur bertujuan tunggal, tips tanpa hak/kewajiban, pernyataan status produk, dan ketentuan yang menjelaskan satu fitur **digabung** (aturan 5.2). Jangan mengembalikan satu klausa yang memuat `a.` dan `b.` yang keduanya hak/kewajiban, kecuali aturan 5.2 menggabungnya.
+2. Setiap klausa anak yang dipisah diawali **seluruh** induknya — termasuk pengantar berakhiran titik (aturan 7.1.2.1) dan judul butir (aturan 7.1.3) — beserta penanda anaknya (aturan 7.4); teks penutup **(C)** diwariskan ke setiap klausa anak (aturan 7.6).
+3. Setiap butir mandiri dan paragraf mandiri adalah klausa sendiri; tidak ada bagian yang seluruhnya ditulis sebagai satu klausa; butir setingkat tidak ditempelkan ke butir sebelumnya; paragraf ketentuan baru menjadi klausa sendiri (aturan 3.3.3–3.3.8). Tidak ada paragraf yang dipecah di batas kalimat (aturan 3.3.6).
+4. Bagian definisi dipisah per Definisi Khusus dan per rangkaian Definisi Umum yang bersebelahan (aturan 4.3.4 dan 6.5); hanya para pihak, kategori produk, nama produk bermerek, Layanan Transfer Dana/Pembayaran, dan kategori transaksi (`Transaksi QRIS`, `Transaksi Finansial`) yang Definisi Khusus.
+5. Penanda klausa independen dan penanda klausa induk tingkat teratas tidak ditulis di `clause_text`; klausa independen tidak diawali judul bagian (aturan 7.4.3 dan 10.3).
+6. `pasal`: klausa tunggal tanpa nomor tanpa `|1`; klausa anak tanpa penanda diberi penomoran di `clause_text` dan, bila dipisah, di `pasal` (aturan 7.5); klausa gabungan memuat seluruh penanda anaknya (aturan 7.4.1, misalnya `3|a-d` memuat `a.` sampai `d.`); judul butir tanpa kalimat induk menjadi segmen `pasal` (aturan 10.1).
+7. Pembuka dan penutup dokumen sudah diekstraksi (aturan 1.3); catatan kaki ditempatkan di akhir klausa yang memuat penandanya, bukan klausa sendiri (aturan 8.6); istilah Bahasa Inggris di dalam kalimat Bahasa Indonesia tidak dibuang (aturan 9.6).
+8. Apabila dua aturan tampak bertentangan, urutan prioritas aturan 6.7 sudah diikuti.

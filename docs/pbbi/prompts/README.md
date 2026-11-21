@@ -4,7 +4,7 @@ Setiap file adalah **system prompt utuh**, disalin apa adanya dari versi yang di
 
 Prompt yang dipakai training dan aplikasi tetap `preparation/prompts/extraction_system.md`. Folder ini hanya arsip dan bahan perbandingan.
 
-Rincian perubahan per versi, kapan dibuat, arah, dan hasilnya ada di [CHANGELOG.md](CHANGELOG.md).
+Rincian perubahan per versi, kapan dibuat, arah, dan hasilnya ada di [CHANGELOG.md](CHANGELOG.md). Jawaban pengawas yang menjadi dasar v4.5 ada di [jawaban-pengawas-v4.5.md](jawaban-pengawas-v4.5.md).
 
 ## Daftar versi
 
@@ -17,7 +17,10 @@ Rincian perubahan per versi, kapan dibuat, arah, dan hasilnya ada di [CHANGELOG.
 | [05-v2.md](05-v2.md) | 2026-11-19 | Draf | v1 + nama produk 4.3.3.4, daftar definisi berpengantar 6.5.4 | Sama dengan `extraction_system.md` di working tree (belum di-commit); tidak diuji terpisah |
 | [06-v3.md](06-v3.md) | 2026-11-19 | Draf | v2 + definisi bukan daftar informatif (5.2.3.4, tabel 6.6, checklist 7) | Diuji dengan agent Claude, 18 dokumen |
 | [07-v3.1.md](07-v3.1.md) | 2026-11-19 | Draf | v3 + butir sebaris `(i)`/`(a)` dalam satu paragraf tetap satu klausa (3.2.4) | Diuji ulang di OY, KALSEL, SMBC. **Kandidat v0.1.5** |
-| [08-v4.md](08-v4.md) | 2026-11-20 | Draf | v3.1 + penutupan sisa P1–P4 + P5–P8, dengan P1–P4 sebagai prioritas (rincian di bawah) | Diuji di DBS MB (Sonnet): F1 97,1 |
+| [08-v4.md](08-v4.md) | 2026-11-20 | Draf | v3.1 + penutupan sisa P1–P4 + P5–P8, dengan P1–P4 sebagai prioritas (rincian di bawah) | Diuji di 6 dokumen sulit: F1 gabungan 95,6 (app 92,0) |
+| [09-v4.5.md](09-v4.5.md) | 2026-11-20 | Draf | v4 + jawaban pengawas R1–R21: prinsip gabung/pisah 5.1.0, daftar sebaris dipisah (3.2.4), pengantar bertitik (7.1.2.1), Definisi Khusus/Umum (4.3.4), istilah Inggris (9.6) | DBS MB (Sonnet): F1 97,6 terhadap kunci jawaban sesuai pengawas (v4: 91,9); 6 dokumen lain di CHANGELOG v4.6 |
+| [10-v4.6.md](10-v4.6.md) | 2026-11-20 | Draf | v4.5 + perbaikan dari uji 7 dokumen: daftar saluran tetap digabung (F1), 6.5 hanya di bagian definisi (F2), pewarisan tiga tingkat (F3), contoh skenario (F4), judul berakhiran `:` (F5) | SEABANK MB (Sonnet): F1 99,0 terhadap kunci sesuai pengawas (v4.5: 94,7) |
+| [11-v4.7.md](11-v4.7.md) | 2026-11-21 | Draf | v4.6 dipadatkan (26.201 → 22.739 token) tanpa mengubah isi aturan | `preparation/prompts/extraction_system.md`. 7 dokumen (Sonnet): rata-rata F1 97,5 (v4.5: 96,4); SEABANK 98,6 |
 
 **Uji v4, DBS MB** (Sonnet, 262 klausa label, 2026-11-20):
 
