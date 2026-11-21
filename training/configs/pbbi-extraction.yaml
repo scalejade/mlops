@@ -9,9 +9,10 @@
 # Trained on the app's own request shape (perjanjian-baku-bi, sys-prompt):
 # system = extraction_system.md verbatim = prompt v4.8.1 (2026-11-21, docs/pbbi/prompts/14-v4.8.1.md;
 # was @ 1d7ccdd until v0.1.4), user = "DOCUMENT:\n" + served PDF text (pdf_extractor.go @ e028187).
-# Labels: Legal's xlsx, overridden in 25 documents by raw/*/*.gold.json (relabel to the
-# supervisor's answers + team decisions K1-K9, docs/pbbi/relabel-v0.1.5.md). The app must serve
-# v4.8.1 with this adapter. Longest row with v4.8.1: 99,349 tokens.
+# Labels: Legal's xlsx, overridden in 36 documents (22 train, 3 eval, 11 test) by
+# raw/*/*.gold.json: pass 1 = supervisor answers R1-R21 + team decisions K1-K9, pass 2 =
+# every label aligned to prompt v4.8.1 (docs/pbbi/relabel-v0.1.5.md). The app must serve
+# v4.8.1 with this adapter. Longest row with v4.8.1: 99,737 tokens.
 # See preparation/README.md, "The serving contract".
 
 run_name: pbbi-clause-extraction-lora-v0.1.5
@@ -36,17 +37,20 @@ model:
   # system 26,201 tokens (+11,919 vs 1d7ccdd). Same answers, new system:
   #   train  UOB Mobile Banking  101,538   <- with v4.6; with v4.7 (22,739 tokens, 21 Nov) ~98,080
   #   train  JAGO Mobile Banking 100,704
-  # 2026-11-21 v0.1.5 build (prompt v4.8.1, 24,012 tokens; labels relabeled): longest
-  # rows 99,349 and 98,795 (train), 82,152 (eval), 92,368 (test); median ~40k.
+  # 2026-11-21 v0.1.5 build (prompt v4.8.1, 24,012 tokens; labels relabel pass 2): longest
+  # rows UOB MB 99,737 and JAGO MB 98,795 (train), OVO 82,716 (eval), SEABANK MB 93,067
+  # (test); median ~40k (train) / ~38k (eval).
   # Every row must stay <= 106,496 in build-report.json. Base serves 262,144, so this
   # is a training cap only.
   # No packing at batch 1, so peak VRAM follows the actual row, not this number.
   # Measured on the H200: a 42k train row peaked at 74.2 GB (v0.1.1, 2026-10-17); the
   # 89,298-token UOB row peaked at 103.2 GB of 141 (memory test before v0.1.4); the
-  # v0.1.4 run itself peaked at 100.4 GB. Slope ~0.61 GB per 1k tokens, so ~98k
-  # (UOB with prompt v4.7) extrapolates to ~109 GB and 106,496 to ~114 GB. Not measured
-  # at these lengths yet. Before the real run:
-  #   training/scripts/test.py --data preparation/data/train.jsonl --max-seq-length 106496 --steps 2
+  # v0.1.4 run itself peaked at 100.4 GB. Slope ~0.61 GB per 1k tokens, so the 99,737
+  # UOB row extrapolates to ~110 GB and 106,496 to ~114 GB. Not measured at these
+  # lengths yet. Before the real run (test.py defaults to the -it repo; pin this one):
+  #   training/scripts/test.py --model scalejade/qwen-sea-lion-v4.5-27b-pbbi \
+  #     --revision 8d32a4b9c89c9272ae8d660792182da7950955a2 \
+  #     --data preparation/data/train.jsonl --max-seq-length 106496 --steps 2
   # On OOM, window the longest rows (build.py --max-row-tokens 80000) rather than
   # 4-bit: QLoRA is reported to degrade on this hybrid-attention architecture.
   max_seq_length: 106496
@@ -99,7 +103,7 @@ train:
   # v0.1.4: same lr, 1 epoch (29 steps, warmup 3). Estimate: ~50-70 s a step,
   # ~2-3 min an eval pass (9 rows) x 7 -> ~45-60 min.
   # v0.1.5 (2026-11-21 build): same 58/9/18 documents and the same settings, so again
-  # 29 steps. Labels: 6,957 train clauses (+~60 vs v0.1.4), 844 eval, 2,203 test.
+  # 29 steps. Labels: 6,991 train clauses (v0.1.4: 6,917), 854 eval (837), 2,209 test (2,178).
   # The system prompt is now ~24k tokens (was 14k), so every row is ~10k tokens longer
   # and steps run somewhat slower; loss is still on the answer only.
   # (A 1-row run, like v0.1.1, wants gradient_accumulation_steps 1, warmup 0,
@@ -153,8 +157,9 @@ tracking:
   #   epoch  after every epoch — worth it once there are dozens of train rows
   quality_check: never
   quality_rows: 2
-  # Must exceed the longest eval answer (OVO, 34,621; 34,958 in the v0.1.5 build) or
-  # the check scores it unfinished. Longest test answer in v0.1.5: 42,810.
+  # Must exceed the longest eval answer (OVO, 34,621; 35,522 in the v0.1.5 build) or
+  # the check scores it unfinished. Longest test answer in v0.1.5: 43,509 (SEABANK MB),
+  # above this cap: scoring test.jsonl needs max_tokens >= ~45k.
   # The endpoint's request_defaults.max_tokens (24,576) is now BELOW
   # what whole documents need (ShopeePay 30,115, OVO 34,621) and must follow.
   quality_max_new_tokens: 40960
