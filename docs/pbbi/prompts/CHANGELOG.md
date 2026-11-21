@@ -368,6 +368,18 @@ Penyesuaian kunci jawaban selama uji, semuanya dari jawaban pengawas:
 
 Pemadatan tidak menurunkan skor. Sisa selisihnya sama dengan v4.6: definisi 2.6–2.8 dan 2.20–2.21 (batas Khusus/Umum untuk `Direct Debit/Bayar Instan`, `Pelanggan`, `Transaksi`), serta 15.7 `Yang mencakup:`. v4.7 menggantikan v4.6 di `preparation/prompts/extraction_system.md`.
 
+## v4.7.1 — 21 Nov 2026: daftar biaya dipisah
+
+**Masalah di v4.7:** BJB D.11 `Biaya yang dikenakan kepada Pengguna … adalah sebagai berikut: a. Biaya internet … b. Biaya transaksi … c. Biaya pulsa …` digabung sebagai daftar jenis/komponen yang informatif. Label memisahnya. Prinsip pengawas (5.1.0) juga memisahnya, karena setiap biaya adalah beban Pengguna yang berdiri sendiri.
+
+**Perubahan:**
+- 5.2.2.3: tambah baris "daftar biaya, denda, atau beban yang dikenakan kepada suatu pihak", yang bukan daftar informatif.
+- Tabel 6.6: tambah satu baris **PISAH** untuk daftar tersebut.
+
+**Panjang:** 22.876 token (+137 dari v4.7).
+
+**Hasil:** belum diuji. v4.7.1 menggantikan v4.7 di `preparation/prompts/extraction_system.md`.
+
 ## Berikutnya (belum diterapkan)
 
 - **Penyesuaian label** (raw, gitignored) sesuai jawaban pengawas:
